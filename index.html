@@ -594,7 +594,7 @@
             }
         }
 
-        function handleTouchEnd(e) {
+	function handleTouchEnd(e) {
             clearTimeout(touchTimer);
             
             if (touchDragging && draggedElement && placeholder) {
@@ -609,13 +609,11 @@
                 draggedElement.style.top = '';
                 delete draggedElement.dataset.originalRect;
                 
-                // Update player order
-                const newOrder = Array.from(document.querySelectorAll('.player-item')).map(el => 
-                    players.find(p => p.id === el.dataset.playerId)
+                // Update player order - get new position from DOM
+                const newPosition = Array.from(document.querySelectorAll('.player-item')).findIndex(el => 
+                    el.dataset.playerId === draggedElement.dataset.playerId
                 );
-                players = newOrder.filter(Boolean);
-                recalculateRanks();
-                filterPlayers();
+                updatePlayerOrder(draggedElement.dataset.playerId, newPosition);
             }
             
             touchDragging = false;
