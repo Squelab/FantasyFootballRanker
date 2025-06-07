@@ -8,15 +8,39 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f172a; }
-        .dragging { opacity: 0.7; transform: scale(1.02); box-shadow: 0 8px 25px rgba(0,0,0,0.5); z-index: 1000; }
+        .dragging { opacity: 0.5; z-index: 1000; }
         .drag-over { transform: translateY(-2px); transition: transform 0.2s; }
         .player-item { transition: transform 0.2s, opacity 0.2s; margin: 0 0 4px 0; border-radius: 0.5rem; }
         .touch-draggable { touch-action: none; user-select: none; -webkit-user-select: none; }
         .drag-area { cursor: move; }
         #playersList { padding: 0; }
         
-        /* Hide notes section on mobile devices */
-        @media (max-width: 768px) {
+        /* Responsive notes section */
+        .notes-section { 
+            width: 80px; /* base mobile width */
+            min-width: 80px;
+        }
+        
+        @media (min-width: 768px) {
+            .notes-section { 
+                width: 24rem; 
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .notes-section { 
+                width: 30rem; 
+            }
+        }
+        
+        @media (min-width: 1280px) {
+            .notes-section { 
+                width: 37.5rem; 
+            }
+        }
+        
+        /* Hide notes section on small mobile devices */
+        @media (max-width: 640px) {
             .notes-section { display: none !important; }
         }
         
@@ -35,36 +59,45 @@
             opacity: 0.3;
             background: #1e293b;
         }
+        
+        .drag-over-top {
+            border-top: 3px solid #3b82f6;
+        }
+        .drag-over-bottom {
+            border-bottom: 3px solid #3b82f6;
+        }
     </style>
 </head>
 <body class="bg-slate-900 min-h-screen text-gray-100">
     <div class="container mx-auto p-4 max-w-6xl">
-        <!-- Header -->
+        <!-- Header Controls -->
         <div class="bg-slate-800 rounded-lg shadow-xl p-6 mb-6 border border-slate-700">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                <input type="text" id="rankerName" placeholder="Your Name" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">
-                <input type="text" id="year" placeholder="Year" value="2025" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">
-                <select id="scoringFormat" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 focus:border-blue-500 focus:outline-none">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4" style="grid-template-columns: 1fr 0.8fr 1fr 1fr 1.2fr 1fr;">
+                <input type="text" id="rankerName" placeholder="Your Name" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none h-10">
+                <select id="scoringFormat" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 focus:border-blue-500 focus:outline-none h-10">
                     <option value="PPR">PPR</option>
                     <option value="Half PPR">Half PPR</option>
                     <option value="Standard">Standard</option>
                     <option value="Superflex">Superflex</option>
                 </select>
-            </div>
-            
-            <h1 id="rankingsTitle" class="text-2xl font-bold text-center text-gray-100 mb-4">
-                Your 2025 PPR Fantasy Football Rankings
-            </h1>
-
-            <div class="flex flex-wrap justify-center gap-4">
-                <label class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer transition-colors">
+                <label class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer transition-colors flex items-center justify-center text-center h-10">
                     Load Rankings
                     <input type="file" id="loadFileInput" accept=".json" class="hidden">
                 </label>
-                <button id="saveBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">Save Rankings</button>
-                <button id="printBtn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors">Download Printable</button>
-                <button id="draftBtn" class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors">Draft Day</button>
+                <button id="saveBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors h-10">Save Rankings</button>
+                <button id="printBtn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors h-10">Download Printable</button>
+                <button id="draftBtn" class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10">Draft Day</button>
             </div>
+
+            <h1 id="rankingsTitle" class="text-2xl font-bold text-center text-gray-100">
+                Your 2025 PPR Fantasy Football Rankings
+            </h1>
+        </div>
+
+        <!-- Recently Drafted Section -->
+        <div id="recentlyDraftedSection" class="bg-red-950 rounded-lg shadow-xl p-4 mb-6 hidden border border-red-900">
+            <h3 class="text-lg font-semibold text-red-400 mb-3">Recently Drafted</h3>
+            <div id="recentlyDraftedList" class="space-y-2"></div>
         </div>
 
         <!-- Filters -->
@@ -83,12 +116,6 @@
             </div>
         </div>
 
-        <!-- Recently Drafted Section -->
-        <div id="recentlyDraftedSection" class="bg-red-950 rounded-lg shadow-xl p-4 mb-6 hidden border border-red-900">
-            <h3 class="text-lg font-semibold text-red-400 mb-3">Recently Drafted</h3>
-            <div id="recentlyDraftedList" class="space-y-2"></div>
-        </div>
-
         <!-- Rankings List -->
         <div class="bg-slate-800 rounded-lg shadow-xl p-4 border border-slate-700">
             <div id="playersList"></div>
@@ -98,6 +125,11 @@
     <script>
         let players = [], filteredPlayers = [], draftedPlayers = [], isDraftMode = false, draggedElement = null, draggedIndex = -1;
         let touchTimer = null, touchDragging = false, touchStartY = 0, touchStartX = 0, placeholder = null;
+        let mouseTimer = null, mouseDragging = false, mouseStartX = 0, mouseStartY = 0;
+        let resizeTimer = null;
+
+        // Get current year
+        const currentYear = new Date().getFullYear();
 
         // Config & Utils
         const config = {
@@ -125,16 +157,114 @@
         const on = (el, evt, fn) => el.addEventListener(evt, fn);
         const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }};
 
+        // Make drag functions globally available immediately
+        window.handleDragStart = function(e) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', ''); // Firefox needs this
+            draggedElement = e.target.closest('.player-item');
+            draggedIndex = parseInt(draggedElement.dataset.index);
+            draggedElement.classList.add('dragging');
+        };
+
+        window.handleDragOver = function(e) {
+            e.preventDefault();
+            const target = e.target.closest('.player-item');
+            if (target && target !== draggedElement) {
+                const rect = target.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                if (e.clientY < midpoint) {
+                    target.classList.add('drag-over-top');
+                    target.classList.remove('drag-over-bottom');
+                } else {
+                    target.classList.add('drag-over-bottom');
+                    target.classList.remove('drag-over-top');
+                }
+            }
+        };
+
+        window.handleDrop = function(e) {
+            e.preventDefault();
+            const target = e.target.closest('.player-item');
+            if (target && target !== draggedElement) {
+                const dragId = draggedElement.dataset.playerId;
+                const targetId = target.dataset.playerId;
+                const dragIdx = players.findIndex(p => p.id === dragId);
+                const targetIdx = players.findIndex(p => p.id === targetId);
+                
+                if (dragIdx !== -1 && targetIdx !== -1) {
+                    const [moved] = players.splice(dragIdx, 1);
+                    players.splice(targetIdx, 0, moved);
+                    recalculateRanks();
+                    filterPlayers();
+                }
+            }
+            cleanupDrag();
+        };
+
+        window.cleanupDrag = function() {
+            document.querySelectorAll('.dragging, .drag-over-top, .drag-over-bottom')
+                .forEach(el => el.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
+            draggedElement = null;
+            draggedIndex = -1;
+        };
+
+        function cancelAllDragOperations() {
+            // Cancel touch timer
+            if (touchTimer) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+            }
+            
+            // Cancel active touch drag
+            if (touchDragging) {
+                touchDragging = false;
+                
+                if (draggedElement && draggedElement.classList.contains('touch-drag-active')) {
+                    draggedElement.classList.remove('touch-drag-active');
+                    draggedElement.style.width = '';
+                    draggedElement.style.height = '';
+                    draggedElement.style.left = '';
+                    draggedElement.style.top = '';
+                    draggedElement.style.position = '';
+                    delete draggedElement.dataset.originalRect;
+                }
+                
+                if (placeholder && placeholder.parentNode) {
+                    placeholder.remove();
+                }
+                
+                draggedElement = null;
+                placeholder = null;
+            }
+            
+            // Cancel active mouse drag
+            if (mouseDragging) {
+                handleMouseUp();
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             // Setup event listeners
-            ['rankerName', 'year', 'scoringFormat'].forEach(id => on($(id), 'input', updateTitle));
+            ['rankerName', 'scoringFormat'].forEach(id => on($(id), 'input', updateTitle));
             on($('searchInput'), 'input', debounce(filterPlayers, 150));
             on($('positionFilter'), 'change', filterPlayers);
             on($('loadFileInput'), 'change', loadRankings);
             on($('saveBtn'), 'click', saveRankings);
             on($('printBtn'), 'click', downloadPrintable);
             on($('draftBtn'), 'click', toggleDraftMode);
+            
+            // Add resize handler with debouncing
+            window.addEventListener('resize', () => {
+                // Immediately cancel any active drag operations
+                cancelAllDragOperations();
+                
+                // Debounce the re-render
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(() => {
+                    filterPlayers();
+                }, 250);
+            });
             
             updateTitle();
             loadPlayersFromFile();
@@ -154,19 +284,64 @@
         }
 
         function updateTitle() {
-            const name = $('rankerName').value;
-            const year = $('year').value || '2025';
+            const name = $('rankerName').value.trim();
             const format = $('scoringFormat').value || 'PPR';
-            $('rankingsTitle').textContent = `${name ? name+"'s " : ''}${year} ${format} Fantasy Football Rankings`;
+            const displayName = name ? name + "'s" : 'Your';
+            $('rankingsTitle').textContent = `${displayName} ${currentYear} ${format} Fantasy Football Rankings`;
         }
 
         function recalculateRanks() {
             const posCounts = {};
             players.forEach((p, i) => {
                 posCounts[p.position] = (posCounts[p.position] || 0) + 1;
-                p.overallRank = i + 1;
+                p.overallRank = i + 1; // Always based on full players array
                 p.positionRank = posCounts[p.position];
             });
+        }
+
+        function updatePlayerOrder(draggedPlayerId, newPosition) {
+            const currentPos = $('positionFilter').value;
+            
+            if (currentPos === 'ALL') {
+                // Global reordering - standard behavior
+                const newOrder = Array.from(document.querySelectorAll('.player-item')).map(el => 
+                    players.find(p => p.id === el.dataset.playerId)
+                ).filter(Boolean);
+                players = newOrder;
+            } else {
+                // Position-specific reordering - more complex
+                const draggedPlayer = players.find(p => p.id === draggedPlayerId);
+                const positionPlayers = filteredPlayers; // current filtered view
+                
+                // Get new order within this position
+                const newPositionOrder = Array.from(document.querySelectorAll('.player-item')).map(el => 
+                    players.find(p => p.id === el.dataset.playerId)
+                ).filter(Boolean);
+                
+                // Remove the dragged player from global array
+                const globalIndex = players.findIndex(p => p.id === draggedPlayerId);
+                players.splice(globalIndex, 1);
+                
+                // Find where to insert in global array
+                const targetPlayer = newPositionOrder[newPosition];
+                if (targetPlayer) {
+                    const targetGlobalIndex = players.findIndex(p => p.id === targetPlayer.id);
+                    players.splice(targetGlobalIndex, 0, draggedPlayer);
+                } else {
+                    // If dropped at end, find last player of this position in global array
+                    let insertIndex = players.length;
+                    for (let i = players.length - 1; i >= 0; i--) {
+                        if (players[i].position === currentPos) {
+                            insertIndex = i + 1;
+                            break;
+                        }
+                    }
+                    players.splice(insertIndex, 0, draggedPlayer);
+                }
+            }
+            
+            recalculateRanks();
+            filterPlayers();
         }
 
         function filterPlayers() {
@@ -192,8 +367,7 @@
 
                 return `<div class="player-item ${config.posColors[p.position]} hover:shadow-lg" data-player-id="${p.id}" data-index="${i}">
                     <div class="p-2 flex items-stretch gap-1">
-                        <div class="drag-area flex items-center gap-1 flex-grow ${!isDraftMode ? 'cursor-move touch-draggable' : ''}"  
-                             ${!isDraftMode ? 'draggable="true" ondragstart="handleDragStart(event)" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragend="cleanupDrag()"' : ''}>
+                        <div class="drag-area flex items-center gap-1 flex-grow ${!isDraftMode ? 'cursor-move' : ''}">
                             <div class="w-12 text-center font-bold text-2xl text-gray-100">${p.overallRank}</div>
                             <span class="${config.positionColors[p.position]} px-2 py-1 rounded text-sm font-medium">${p.position}${p.positionRank}</span>
                             <div class="px-2 flex-grow">
@@ -201,63 +375,181 @@
                                 <div class="text-xs text-gray-400">${p.team}</div>
                             </div>
                         </div>
-                        <div class="notes-section px-2 w-80 md:w-96 lg:w-[500px] xl:w-[600px] flex items-center overflow-hidden">${notes}</div>
+                        <div class="notes-section px-2 flex items-center overflow-hidden">${notes}</div>
                         <div class="w-10 flex items-center">${actionBtn}</div>
                     </div>
                 </div>`;
             }).join('');
             
-            // Add touch event listeners after rendering
+            // Add drag event listeners after rendering
             if (!isDraftMode) {
-                setupTouchHandlers();
+                setupDragHandlers();
             }
         }
 
-        // Touch handling for mobile drag and drop
-        function setupTouchHandlers() {
+        // Touch and Mouse handling for drag and drop
+        function setupDragHandlers() {
             const items = document.querySelectorAll('.drag-area');
             items.forEach(item => {
+                // Mobile touch events
                 item.addEventListener('touchstart', handleTouchStart, { passive: false });
                 item.addEventListener('touchmove', handleTouchMove, { passive: false });
                 item.addEventListener('touchend', handleTouchEnd, { passive: false });
+                
+                // Desktop mouse events
+                item.addEventListener('mousedown', handleMouseDown);
             });
         }
 
+        function handleMouseDown(e) {
+            // Prevent text selection while dragging
+            e.preventDefault();
+            
+            mouseStartX = e.clientX;
+            mouseStartY = e.clientY;
+            
+            const playerItem = e.target.closest('.player-item');
+            
+            // No long press needed for desktop - start drag immediately
+            mouseDragging = true;
+            draggedElement = playerItem;
+            draggedIndex = parseInt(playerItem.dataset.index);
+            
+            // Store original position
+            const rect = draggedElement.getBoundingClientRect();
+            
+            // Create placeholder
+            placeholder = draggedElement.cloneNode(true);
+            placeholder.classList.add('drag-placeholder');
+            draggedElement.parentNode.insertBefore(placeholder, draggedElement);
+            
+            // Store original rect
+            draggedElement.dataset.originalRect = JSON.stringify({
+                left: rect.left,
+                top: rect.top
+            });
+            
+            // Style dragged element
+            draggedElement.classList.add('touch-drag-active');
+            draggedElement.style.width = rect.width + 'px';
+            draggedElement.style.height = rect.height + 'px';
+            draggedElement.style.left = rect.left + 'px';
+            draggedElement.style.top = rect.top + 'px';
+            
+            // Add mouse move/up listeners to document for better tracking
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        function handleMouseMove(e) {
+            if (!mouseDragging) return;
+            
+            e.preventDefault();
+            
+            // Update dragged element position
+            if (draggedElement && draggedElement.classList.contains('touch-drag-active')) {
+                const offsetX = e.clientX - mouseStartX;
+                const offsetY = e.clientY - mouseStartY;
+                const originalRect = JSON.parse(draggedElement.dataset.originalRect);
+                
+                draggedElement.style.left = (originalRect.left + offsetX) + 'px';
+                draggedElement.style.top = (originalRect.top + offsetY) + 'px';
+            }
+            
+            // Find element under mouse
+            draggedElement.style.pointerEvents = 'none'; // temporarily disable to see through
+            const elementBelow = document.elementFromPoint(e.clientX, e.clientY);
+            draggedElement.style.pointerEvents = 'auto';
+            
+            const targetItem = elementBelow?.closest('.player-item:not(.touch-drag-active)');
+            
+            if (targetItem && placeholder) {
+                const targetRect = targetItem.getBoundingClientRect();
+                const targetMid = targetRect.top + targetRect.height / 2;
+                
+                if (e.clientY < targetMid) {
+                    targetItem.parentNode.insertBefore(placeholder, targetItem);
+                } else {
+                    targetItem.parentNode.insertBefore(placeholder, targetItem.nextSibling);
+                }
+            }
+        }
+
+        function handleMouseUp(e) {
+            if (!mouseDragging) return;
+            
+            // Remove document listeners
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            
+            if (draggedElement && placeholder) {
+                // Replace placeholder with dragged element
+                placeholder.parentNode.replaceChild(draggedElement, placeholder);
+                
+                // Clean up styles
+                draggedElement.classList.remove('touch-drag-active');
+                draggedElement.style.width = '';
+                draggedElement.style.height = '';
+                draggedElement.style.left = '';
+                draggedElement.style.top = '';
+                draggedElement.style.pointerEvents = '';
+                delete draggedElement.dataset.originalRect;
+                
+                // Update player order - get new position from DOM
+                const newPosition = Array.from(document.querySelectorAll('.player-item')).findIndex(el => 
+                    el.dataset.playerId === draggedElement.dataset.playerId
+                );
+                updatePlayerOrder(draggedElement.dataset.playerId, newPosition);
+            }
+            
+            mouseDragging = false;
+            draggedElement = null;
+            placeholder = null;
+        }
+
         function handleTouchStart(e) {
+            // Ignore touches near window edges (within 20px) to prevent conflicts with resize
             const touch = e.touches[0];
+            if (touch.clientX < 20 || touch.clientX > window.innerWidth - 20 || 
+                touch.clientY < 20 || touch.clientY > window.innerHeight - 20) {
+                return;
+            }
+            
             touchStartX = touch.clientX;
             touchStartY = touch.clientY;
             
             const playerItem = e.target.closest('.player-item');
             
             touchTimer = setTimeout(() => {
-                touchDragging = true;
-                draggedElement = playerItem;
-                draggedIndex = parseInt(playerItem.dataset.index);
-                
-                // Store original position
-                const rect = draggedElement.getBoundingClientRect();
-                
-                // Create placeholder
-                placeholder = draggedElement.cloneNode(true);
-                placeholder.classList.add('drag-placeholder');
-                draggedElement.parentNode.insertBefore(placeholder, draggedElement);
-                
-                // Store original rect for consistent positioning
-                draggedElement.dataset.originalRect = JSON.stringify({
-                    left: rect.left,
-                    top: rect.top
-                });
-                
-                // Style dragged element
-                draggedElement.classList.add('touch-drag-active');
-                draggedElement.style.width = rect.width + 'px';
-                draggedElement.style.height = rect.height + 'px';
-                draggedElement.style.left = rect.left + 'px';
-                draggedElement.style.top = rect.top + 'px';
-                
-                // Haptic feedback if available
-                if (navigator.vibrate) navigator.vibrate(50);
+                if (!touchDragging) { // Double check we haven't been cancelled
+                    touchDragging = true;
+                    draggedElement = playerItem;
+                    draggedIndex = parseInt(playerItem.dataset.index);
+                    
+                    // Store original position
+                    const rect = draggedElement.getBoundingClientRect();
+                    
+                    // Create placeholder
+                    placeholder = draggedElement.cloneNode(true);
+                    placeholder.classList.add('drag-placeholder');
+                    draggedElement.parentNode.insertBefore(placeholder, draggedElement);
+                    
+                    // Store original rect for consistent positioning
+                    draggedElement.dataset.originalRect = JSON.stringify({
+                        left: rect.left,
+                        top: rect.top
+                    });
+                    
+                    // Style dragged element
+                    draggedElement.classList.add('touch-drag-active');
+                    draggedElement.style.width = rect.width + 'px';
+                    draggedElement.style.height = rect.height + 'px';
+                    draggedElement.style.left = rect.left + 'px';
+                    draggedElement.style.top = rect.top + 'px';
+                    
+                    // Haptic feedback if available
+                    if (navigator.vibrate) navigator.vibrate(50);
+                }
             }, 200);
         }
 
@@ -277,7 +569,7 @@
             const touch = e.touches[0];
             
             // Update dragged element position using original start position
-            if (draggedElement && draggedElement.classList.contains('touch-drag-active')) {
+            if (draggedElement && draggedElement.classList.contains('touch-drag-active') && draggedElement.dataset.originalRect) {
                 const offsetX = touch.clientX - touchStartX;
                 const offsetY = touch.clientY - touchStartY;
                 const originalRect = JSON.parse(draggedElement.dataset.originalRect);
@@ -391,48 +683,21 @@
             ).join('');
         }
 
-        // Desktop Drag and Drop
-        window.handleDragStart = e => {
-            draggedElement = e.target.closest('.player-item');
-            draggedIndex = parseInt(draggedElement.dataset.index);
-            draggedElement.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-        };
-
-        window.handleDragOver = e => {
-            e.preventDefault();
-            const target = e.target.closest('.player-item');
-            if (target && target !== draggedElement) {
-                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-                target.classList.add('drag-over');
-            }
-        };
-
-        window.handleDrop = e => {
-            e.preventDefault();
-            const target = e.target.closest('.player-item');
-            if (target && target !== draggedElement) {
-                const dragId = draggedElement.dataset.playerId;
-                const targetId = target.dataset.playerId;
-                const dragIdx = players.findIndex(p => p.id === dragId);
-                const targetIdx = players.findIndex(p => p.id === targetId);
+        // Helper function to find where to insert during desktop drag
+        function getDragAfterElement(y) {
+            const draggableElements = [...$('playersList').querySelectorAll('.player-item:not(.dragging)')];
+            
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
                 
-                if (dragIdx !== -1 && targetIdx !== -1) {
-                    const [moved] = players.splice(dragIdx, 1);
-                    players.splice(targetIdx, 0, moved);
-                    recalculateRanks();
-                    filterPlayers();
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
                 }
-            }
-            cleanupDrag();
-        };
-
-        window.cleanupDrag = () => {
-            document.querySelectorAll('.dragging, .drag-over').forEach(el => 
-                el.classList.remove('dragging', 'drag-over'));
-            draggedElement = null;
-            draggedIndex = -1;
-        };
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
 
         // File operations
         function loadRankings(e) {
@@ -451,7 +716,6 @@
                         recalculateRanks();
                     } else {
                         $('rankerName').value = data.rankerName || '';
-                        $('year').value = data.year || '2025';
                         $('scoringFormat').value = data.scoringFormat || 'PPR';
                         players = data.players || [];
                         draftedPlayers = data.draftedPlayers || [];
@@ -468,21 +732,22 @@
 
         function saveRankings() {
             const data = {
-                rankerName: $('rankerName').value,
-                year: $('year').value,
+                rankerName: $('rankerName').value.trim(),
+                year: currentYear,
                 scoringFormat: $('scoringFormat').value,
                 players, draftedPlayers
             };
 
-            const filename = `${data.rankerName || 'Unknown'}${data.year || '2025'}${data.scoringFormat || 'PPR'}Rankings.json`;
+            const displayName = data.rankerName || 'Your';
+            const filename = `${displayName}${currentYear}${data.scoringFormat || 'PPR'}Rankings.json`;
             downloadFile(JSON.stringify(data, null, 2), filename, 'application/json');
         }
 
         function downloadPrintable() {
-            const rankerName = $('rankerName').value || 'Fantasy';
-            const year = $('year').value || '2025';
+            const name = $('rankerName').value.trim();
+            const displayName = name || 'Your';
             const scoring = $('scoringFormat').value || 'PPR';
-            const filename = `${rankerName}${year}${scoring}Printable.html`;
+            const filename = `${displayName}${currentYear}${scoring}Printable.html`;
             downloadFile(generatePrintableHTML(), filename, 'text/html');
         }
 
@@ -521,8 +786,8 @@
                 const right = players.slice(i + perCol, i + perPage);
                 pages.push(`<div class="page">
                     <div class="header">
-                        <div class="url-header">https://elamschwey.github.io/FantasyRanker/</div>
                         <div class="subtitle">${title} - Generated on ${new Date().toLocaleDateString()}</div>
+                        <div class="url-header">https://squelab.github.io/FantasyFootballRanker/</div>
                     </div>
                     <div class="columns">
                         <div class="column">${genColumn(left)}</div>
@@ -538,8 +803,8 @@
             return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>
 *{margin:0;padding:0;box-sizing:border-box}body{font:11px/1.2 Arial,sans-serif;color:#333;background:#fff}
 .page{width:8.5in;height:11in;margin:0 auto;padding:.3in;page-break-after:always;position:relative;display:flex;flex-direction:column}
-.page:last-child{page-break-after:avoid}.header{text-align:center;margin-bottom:.15in;padding-bottom:4px}
-.url-header{font-size:10px;color:#666}.subtitle{font-size:11px;color:#666;margin-top:2px}
+.page:last-child{page-break-after:avoid}.header{text-align:center;margin-bottom:.15in;padding-bottom:4px;display:flex;justify-content:space-between;align-items:center}
+.url-header{font-size:10px;color:#666}.subtitle{font-size:11px;color:#666;flex-grow:1}
 .columns{display:flex;gap:.15in;flex-grow:1}.column{width:360px}
 .player{position:relative;margin-bottom:3px;height:32px;width:360px;border-radius:2px;border-left:3px solid #d1d5db}
 .player.risk-high{border-left:3px solid #dc2626}
