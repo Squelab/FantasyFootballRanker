@@ -127,6 +127,7 @@
         let touchTimer = null, touchDragging = false, touchStartY = 0, touchStartX = 0, placeholder = null;
         let mouseTimer = null, mouseDragging = false, mouseStartX = 0, mouseStartY = 0;
         let resizeTimer = null;
+        let masterOrder = []; // Preserve the original "All Positions" order
 
         // Get current year
         const currentYear = new Date().getFullYear();
@@ -299,7 +300,7 @@
             });
         }
 
-        function updatePlayerOrder(draggedPlayerId, newPosition) {
+	function updatePlayerOrder(draggedPlayerId, newPosition) {
             const currentPos = $('positionFilter').value;
             
             if (currentPos === 'ALL') {
@@ -309,34 +310,15 @@
                 ).filter(Boolean);
                 players = newOrder;
             } else {
-                // Position-specific reordering - more complex
-                const draggedPlayer = players.find(p => p.id === draggedPlayerId);
-                const positionPlayers = filteredPlayers; // current filtered view
+                // Position-specific: find what players are shown and swap in global context
+                const visiblePlayerIds = Array.from(document.querySelectorAll('.player-item')).map(el => el.dataset.playerId);
+                const draggedGlobalIndex = players.findIndex(p => p.id === draggedPlayerId);
+                const targetPlayerId = visiblePlayerIds[newPosition];
+                const targetGlobalIndex = players.findIndex(p => p.id === targetPlayerId);
                 
-                // Get new order within this position
-                const newPositionOrder = Array.from(document.querySelectorAll('.player-item')).map(el => 
-                    players.find(p => p.id === el.dataset.playerId)
-                ).filter(Boolean);
-                
-                // Remove the dragged player from global array
-                const globalIndex = players.findIndex(p => p.id === draggedPlayerId);
-                players.splice(globalIndex, 1);
-                
-                // Find where to insert in global array
-                const targetPlayer = newPositionOrder[newPosition];
-                if (targetPlayer) {
-                    const targetGlobalIndex = players.findIndex(p => p.id === targetPlayer.id);
-                    players.splice(targetGlobalIndex, 0, draggedPlayer);
-                } else {
-                    // If dropped at end, find last player of this position in global array
-                    let insertIndex = players.length;
-                    for (let i = players.length - 1; i >= 0; i--) {
-                        if (players[i].position === currentPos) {
-                            insertIndex = i + 1;
-                            break;
-                        }
-                    }
-                    players.splice(insertIndex, 0, draggedPlayer);
+                if (draggedGlobalIndex !== -1 && targetGlobalIndex !== -1) {
+                    // Simple swap in global array
+                    [players[draggedGlobalIndex], players[targetGlobalIndex]] = [players[targetGlobalIndex], players[draggedGlobalIndex]];
                 }
             }
             
