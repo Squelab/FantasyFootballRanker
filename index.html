@@ -66,6 +66,35 @@
         .drag-over-bottom {
             border-bottom: 3px solid #3b82f6;
         }
+
+        /* Futuristic AI Insight Button */
+        .ai-insight-btn {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #1e40af 100%);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ai-insight-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.6s;
+        }
+        
+        .ai-insight-btn:hover::before {
+            left: 100%;
+        }
+        
+        .ai-insight-btn:hover {
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body class="bg-slate-900 min-h-screen text-gray-100">
@@ -78,7 +107,6 @@
                     <option value="PPR">PPR</option>
                     <option value="Half PPR">Half PPR</option>
                     <option value="Standard">Standard</option>
-                    <option value="Superflex">Superflex</option>
                 </select>
                 <label class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 cursor-pointer transition-colors flex items-center justify-center text-center h-10">
                     Load Rankings
@@ -104,15 +132,9 @@
         <div class="bg-slate-800 rounded-lg shadow-xl p-4 mb-6 border border-slate-700">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input type="text" id="searchInput" placeholder="Search players..." class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">
-                <select id="positionFilter" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 focus:border-blue-500 focus:outline-none">
-                    <option value="ALL">All Positions</option>
-                    <option value="QB">QB</option>
-                    <option value="RB">RB</option>
-                    <option value="WR">WR</option>
-                    <option value="TE">TE</option>
-                    <option value="K">K</option>
-                    <option value="DST">DST</option>
-                </select>
+                <button id="aiInsightBtn" class="ai-insight-btn text-white px-4 py-2 rounded-md font-semibold tracking-wide transition-all duration-300 h-10 relative z-10">
+                    🤖 The AI's Insight
+                </button>
             </div>
         </div>
 
@@ -127,10 +149,24 @@
         let touchTimer = null, touchDragging = false, touchStartY = 0, touchStartX = 0, placeholder = null;
         let mouseTimer = null, mouseDragging = false, mouseStartX = 0, mouseStartY = 0;
         let resizeTimer = null;
-        let masterOrder = []; // Preserve the original "All Positions" order
 
         // Get current year
         const currentYear = new Date().getFullYear();
+
+        // Live ADP Configuration
+        const adpConfig = {
+            baseUrl: 'https://fantasyranker-adp-api.onrender.com/api/players',
+            endpoints: {
+                'PPR': '/ppr',
+                'Half PPR': '/half', 
+                'Standard': '/standard'
+            }
+        };
+
+        // ADP cache variables
+        let lastFetchTime = 0;
+        let cachedAdpData = null;
+        const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 
         // Config & Utils
         const config = {
@@ -157,6 +193,156 @@
         const $ = id => document.getElementById(id);
         const on = (el, evt, fn) => el.addEventListener(evt, fn);
         const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }};
+
+        // Live ADP Functions
+        async function fetchAdpData(scoringFormat = 'Half PPR', useCache = true) {
+            const now = Date.now();
+            
+            // Return cached data if still fresh
+            if (useCache && cachedAdpData && (now - lastFetchTime) < CACHE_DURATION) {
+                console.log('Using cached ADP data');
+                return cachedAdpData;
+            }
+            
+            const endpoint = adpConfig.endpoints[scoringFormat];
+            if (!endpoint) {
+                throw new Error(`Unsupported scoring format: ${scoringFormat}`);
+            }
+            
+            const apiUrl = adpConfig.baseUrl + endpoint;
+            
+            try {
+                console.log(`Fetching ${scoringFormat} data from: ${apiUrl}`);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.players || data.players.length === 0) {
+                    throw new Error('No player data found in response');
+                }
+                
+                // Filter to top 200 players, excluding K and DST
+                const filteredPlayers = data.players
+                    .filter(player => player.position !== 'K' && player.position !== 'DST')
+                    .slice(0, 200);
+
+                console.log(`Filtered to ${filteredPlayers.length} players (removed K/DST, top 200 only)`);
+                cachedAdpData = filteredPlayers;
+                lastFetchTime = now;
+                return filteredPlayers;
+                
+            } catch (error) {
+                console.error(`Error fetching ${scoringFormat} data:`, error.message);
+                throw error;
+            }
+        }
+
+        function addLiveDataControls() {
+            const controlsContainer = document.querySelector('.bg-slate-800.rounded-lg.shadow-xl.p-6.mb-6.border.border-slate-700');
+            
+            // Add live data toggle
+            const liveDataRow = document.createElement('div');
+            liveDataRow.className = 'grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-600';
+            liveDataRow.innerHTML = `
+                <button id="loadLiveBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors h-10">
+                    Load Live ADP
+                </button>
+                <button id="refreshAdpBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors h-10 hidden">
+                    Refresh to ADP
+                </button>
+                <div id="adpStatus" class="flex items-center text-sm text-gray-400"></div>
+            `;
+            
+            controlsContainer.appendChild(liveDataRow);
+            
+            // Add event listeners
+            document.getElementById('loadLiveBtn').addEventListener('click', loadLiveAdpData);
+            document.getElementById('refreshAdpBtn').addEventListener('click', () => loadLiveAdpData(false));
+        }
+
+        async function loadLiveAdpData(useCache = true) {
+            const loadBtn = document.getElementById('loadLiveBtn');
+            const refreshBtn = document.getElementById('refreshAdpBtn');
+            const statusDiv = document.getElementById('adpStatus');
+            const scoringFormat = document.getElementById('scoringFormat').value;
+            
+            // Update UI to show loading
+            loadBtn.disabled = true;
+            loadBtn.textContent = 'Loading...';
+            statusDiv.textContent = 'Fetching live ADP data...';
+            
+            try {
+                const adpPlayers = await fetchAdpData(scoringFormat, useCache);
+                
+                // Update global players array
+                players = adpPlayers;
+                recalculateRanks();
+                filterPlayers();
+                
+                // Update UI
+                loadBtn.textContent = 'Live ADP Loaded';
+                loadBtn.className = 'bg-green-600 text-white px-4 py-2 rounded-md opacity-75 cursor-not-allowed h-10';
+                refreshBtn.classList.remove('hidden');
+                
+                const cacheText = useCache && cachedAdpData ? ' (cached)' : '';
+                statusDiv.innerHTML = `
+                    <span class="text-green-400">✓ Loaded ${adpPlayers.length} players${cacheText}</span>
+                    <span class="ml-2 text-xs">${new Date().toLocaleTimeString()}</span>
+                `;
+                
+                console.log('Live ADP data loaded successfully');
+                
+            } catch (error) {
+                console.error('Failed to load live ADP data:', error);
+                
+                // Reset UI
+                loadBtn.disabled = false;
+                loadBtn.textContent = 'Load Live ADP';
+                statusDiv.innerHTML = `<span class="text-red-400">✗ Failed: ${error.message}</span>`;
+                
+                // Show user-friendly error message
+                alert(`Failed to load live ADP data: ${error.message}\n\nThe backend might be sleeping (first request takes 30 seconds). Please try again.`);
+            }
+        }
+
+        function updateTitleWithAdp() {
+            const name = document.getElementById('rankerName').value.trim();
+            const format = document.getElementById('scoringFormat').value || 'PPR';
+            const displayName = name ? name + "'s" : 'Your';
+            const isLiveData = cachedAdpData && players === cachedAdpData;
+            const liveText = isLiveData ? 'Live ' : '';
+            
+            document.getElementById('rankingsTitle').textContent = 
+                `${displayName} ${currentYear} ${liveText}${format} Fantasy Football Rankings`;
+        }
+
+        function setupScoringFormatHandler() {
+            const originalHandler = document.getElementById('scoringFormat').onchange;
+            
+            document.getElementById('scoringFormat').addEventListener('change', () => {
+                // Call original handler
+                if (originalHandler) originalHandler();
+                
+                // If using live data, offer to refresh
+                if (cachedAdpData && players === cachedAdpData) {
+                    if (confirm('Scoring format changed. Load ADP data for the new format?')) {
+                        loadLiveAdpData(false); // Force fresh fetch
+                    }
+                }
+                
+                updateTitleWithAdp();
+            });
+        }
 
         // Make drag functions globally available immediately
         window.handleDragStart = function(e) {
@@ -247,13 +433,17 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             // Setup event listeners
-            ['rankerName', 'scoringFormat'].forEach(id => on($(id), 'input', updateTitle));
+            ['rankerName', 'scoringFormat'].forEach(id => on($(id), 'input', updateTitleWithAdp));
             on($('searchInput'), 'input', debounce(filterPlayers, 150));
-            on($('positionFilter'), 'change', filterPlayers);
             on($('loadFileInput'), 'change', loadRankings);
             on($('saveBtn'), 'click', saveRankings);
             on($('printBtn'), 'click', downloadPrintable);
             on($('draftBtn'), 'click', toggleDraftMode);
+            
+            // Add AI Insight button handler (placeholder for now)
+            on($('aiInsightBtn'), 'click', () => {
+                console.log('AI Insight button clicked - functionality to be added later');
+            });
             
             // Add resize handler with debouncing
             window.addEventListener('resize', () => {
@@ -267,8 +457,14 @@
                 }, 250);
             });
             
-            updateTitle();
+            updateTitleWithAdp();
             loadPlayersFromFile();
+            
+            // Add live data controls after existing initialization
+            setTimeout(() => {
+                addLiveDataControls();
+                setupScoringFormatHandler();
+            }, 100);
         });
 
         function loadPlayersFromFile() {
@@ -284,13 +480,6 @@
                 }).catch(() => {});
         }
 
-        function updateTitle() {
-            const name = $('rankerName').value.trim();
-            const format = $('scoringFormat').value || 'PPR';
-            const displayName = name ? name + "'s" : 'Your';
-            $('rankingsTitle').textContent = `${displayName} ${currentYear} ${format} Fantasy Football Rankings`;
-        }
-
         function recalculateRanks() {
             const posCounts = {};
             players.forEach((p, i) => {
@@ -300,27 +489,12 @@
             });
         }
 
-	function updatePlayerOrder(draggedPlayerId, newPosition) {
-            const currentPos = $('positionFilter').value;
-            
-            if (currentPos === 'ALL') {
-                // Global reordering - standard behavior
-                const newOrder = Array.from(document.querySelectorAll('.player-item')).map(el => 
-                    players.find(p => p.id === el.dataset.playerId)
-                ).filter(Boolean);
-                players = newOrder;
-            } else {
-                // Position-specific: find what players are shown and swap in global context
-                const visiblePlayerIds = Array.from(document.querySelectorAll('.player-item')).map(el => el.dataset.playerId);
-                const draggedGlobalIndex = players.findIndex(p => p.id === draggedPlayerId);
-                const targetPlayerId = visiblePlayerIds[newPosition];
-                const targetGlobalIndex = players.findIndex(p => p.id === targetPlayerId);
-                
-                if (draggedGlobalIndex !== -1 && targetGlobalIndex !== -1) {
-                    // Simple swap in global array
-                    [players[draggedGlobalIndex], players[targetGlobalIndex]] = [players[targetGlobalIndex], players[draggedGlobalIndex]];
-                }
-            }
+        function updatePlayerOrder(draggedPlayerId, newPosition) {
+            // Global reordering - standard behavior
+            const newOrder = Array.from(document.querySelectorAll('.player-item')).map(el => 
+                players.find(p => p.id === el.dataset.playerId)
+            ).filter(Boolean);
+            players = newOrder;
             
             recalculateRanks();
             filterPlayers();
@@ -328,10 +502,8 @@
 
         function filterPlayers() {
             const search = $('searchInput').value.toLowerCase();
-            const pos = $('positionFilter').value;
             filteredPlayers = players.filter(p => 
-                (p.name.toLowerCase().includes(search) || p.team.toLowerCase().includes(search)) &&
-                (pos === 'ALL' || p.position === pos)
+                p.name.toLowerCase().includes(search) || p.team.toLowerCase().includes(search)
             );
             renderPlayers();
         }
@@ -354,7 +526,10 @@
                             <span class="${config.positionColors[p.position]} px-2 py-1 rounded text-sm font-medium">${p.position}${p.positionRank}</span>
                             <div class="px-2 flex-grow">
                                 <div class="font-semibold text-gray-100">${p.name}</div>
-                                <div class="text-xs text-gray-400">${p.team}</div>
+                                <div class="text-xs text-gray-400 flex justify-between items-center">
+                                    <span>${p.team}</span>
+                                    ${p.adp ? `<span class="text-grey-400">ADP: ${p.adp}</span>` : ''}
+                                </div>
                             </div>
                         </div>
                         <div class="notes-section px-2 flex items-center overflow-hidden">${notes}</div>
@@ -576,7 +751,7 @@
             }
         }
 
-	function handleTouchEnd(e) {
+        function handleTouchEnd(e) {
             clearTimeout(touchTimer);
             
             if (touchDragging && draggedElement && placeholder) {
@@ -641,8 +816,8 @@
             isDraftMode = !isDraftMode;
             const btn = $('draftBtn');
             btn.textContent = isDraftMode ? 'Exit Draft' : 'Draft Day';
-            btn.className = isDraftMode ? 'bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors' : 
-                                          'bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors';
+            btn.className = isDraftMode ? 'bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors h-10' : 
+                                          'bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10';
             $('recentlyDraftedSection').classList.toggle('hidden');
             renderPlayers();
             if (isDraftMode) renderRecentlyDrafted();
@@ -661,22 +836,6 @@
                     </div>
                 </div>`
             ).join('');
-        }
-
-        // Helper function to find where to insert during desktop drag
-        function getDragAfterElement(y) {
-            const draggableElements = [...$('playersList').querySelectorAll('.player-item:not(.dragging)')];
-            
-            return draggableElements.reduce((closest, child) => {
-                const box = child.getBoundingClientRect();
-                const offset = y - box.top - box.height / 2;
-                
-                if (offset < 0 && offset > closest.offset) {
-                    return { offset: offset, element: child };
-                } else {
-                    return closest;
-                }
-            }, { offset: Number.NEGATIVE_INFINITY }).element;
         }
 
         // File operations
@@ -700,7 +859,7 @@
                         players = data.players || [];
                         draftedPlayers = data.draftedPlayers || [];
                     }
-                    updateTitle();
+                    updateTitleWithAdp();
                     filterPlayers();
                     if (isDraftMode) renderRecentlyDrafted();
                 } catch (err) {
@@ -801,6 +960,12 @@ border-radius:2px;padding:2px 3px;font-size:7px;color:#374151;word-wrap:break-wo
 @media print{body{margin:0}.page{margin:0;page-break-after:always}.page:last-child{page-break-after:avoid}}
 </style></head><body>${pages.join('')}</body></html>`;
         }
+
+        // Export functions for debugging/manual use
+        window.debugAdp = {
+            fetchAdpData,
+            loadLiveAdpData
+        };
     </script>
 </body>
 </html>
