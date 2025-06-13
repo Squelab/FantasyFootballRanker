@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,44 +9,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f172a; }
-        .dragging { opacity: 0.5; z-index: 1000; }
-        .drag-over { transform: translateY(-2px); transition: transform 0.2s; }
         .player-item { transition: transform 0.2s, opacity 0.2s; margin: 0 0 4px 0; border-radius: 0.5rem; }
-        .touch-draggable { touch-action: none; user-select: none; -webkit-user-select: none; }
         .drag-area { cursor: move; }
         #playersList { padding: 0; }
         
-        /* Responsive notes section */
         .notes-section { 
-            width: 80px; /* base mobile width */
+            width: 80px;
             min-width: 80px;
         }
         
         @media (min-width: 768px) {
-            .notes-section { 
-                width: 24rem; 
-            }
+            .notes-section { width: 24rem; }
         }
         
         @media (min-width: 1024px) {
-            .notes-section { 
-                width: 30rem; 
-            }
+            .notes-section { width: 30rem; }
         }
         
         @media (min-width: 1280px) {
-            .notes-section { 
-                width: 37.5rem; 
-            }
+            .notes-section { width: 37.5rem; }
         }
         
-        /* Hide notes section on small mobile devices */
         @media (max-width: 640px) {
             .notes-section { display: none !important; }
         }
         
-        /* Touch drag styles */
-        .touch-drag-active {
+        .drag-active {
             position: fixed !important;
             z-index: 10000 !important;
             pointer-events: none !important;
@@ -59,49 +48,13 @@
             opacity: 0.3;
             background: #1e293b;
         }
-        
-        .drag-over-top {
-            border-top: 3px solid #3b82f6;
-        }
-        .drag-over-bottom {
-            border-bottom: 3px solid #3b82f6;
-        }
-
-        /* Futuristic AI Insight Button */
-        .ai-insight-btn {
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 50%, #1e40af 100%);
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .ai-insight-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.6s;
-        }
-        
-        .ai-insight-btn:hover::before {
-            left: 100%;
-        }
-        
-        .ai-insight-btn:hover {
-            box-shadow: 0 0 30px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-            transform: translateY(-1px);
-        }
     </style>
 </head>
 <body class="bg-slate-900 min-h-screen text-gray-100">
     <div class="container mx-auto p-4 max-w-6xl">
         <!-- Header Controls -->
         <div class="bg-slate-800 rounded-lg shadow-xl p-6 mb-6 border border-slate-700">
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4 md:[grid-template-columns:1fr_0.8fr_1fr_1fr_1.2fr_1fr]">
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4">
                 <input type="text" id="rankerName" placeholder="Your Name" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none h-10">
                 <select id="scoringFormat" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 focus:border-blue-500 focus:outline-none h-10">
                     <option value="PPR">PPR</option>
@@ -113,11 +66,12 @@
                     <input type="file" id="loadFileInput" accept=".json" class="hidden">
                 </label>
                 <button id="saveBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors h-10">Save Rankings</button>
-                <button id="printBtn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors h-10">Download Printable</button>
-                <button id="draftBtn" class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10">Draft Day</button>
+                <button id="printBtn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors h-10">Printable</button>
+                <button id="loadLiveBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors h-10">Load Live ADP</button>
+                <button id="refreshAdpBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors h-10 hidden">Refresh to ADP</button>
             </div>
-
-            <h1 id="rankingsTitle" class="text-2xl font-bold text-center text-gray-100">
+            <div id="adpStatus" class="flex items-center justify-center text-sm text-gray-400 mb-2"></div>
+            <h1 id="rankingsTitle" class="text-2xl font-bold text-center text-gray-100 mt-4">
                 Your 2025 PPR Fantasy Football Rankings
             </h1>
         </div>
@@ -132,9 +86,7 @@
         <div class="bg-slate-800 rounded-lg shadow-xl p-4 mb-6 border border-slate-700">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input type="text" id="searchInput" placeholder="Search players..." class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">
-                <button id="aiInsightBtn" class="ai-insight-btn text-white px-4 py-2 rounded-md font-semibold tracking-wide transition-all duration-300 h-10 relative z-10">
-                    🤖 The AI's Insight
-                </button>
+                <button id="draftBtn" class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10">Draft Day</button>
             </div>
         </div>
 
@@ -145,31 +97,32 @@
     </div>
 
     <script>
-        let players = [], filteredPlayers = [], draftedPlayers = [], isDraftMode = false, draggedElement = null, draggedIndex = -1;
-        let touchTimer = null, touchDragging = false, touchStartY = 0, touchStartX = 0, placeholder = null;
-        let mouseTimer = null, mouseDragging = false, mouseStartX = 0, mouseStartY = 0;
-        let resizeTimer = null;
-
-        // Get current year
-        const currentYear = new Date().getFullYear();
-
-        // Live ADP Configuration
-        const adpConfig = {
-            baseUrl: 'https://fantasyranker-adp-api.onrender.com/api/players',
-            endpoints: {
-                'PPR': '/ppr',
-                'Half PPR': '/half', 
-                'Standard': '/standard'
+        // State management
+        const state = {
+            players: [],
+            filteredPlayers: [],
+            draftedPlayers: [],
+            isDraftMode: false,
+            dragState: {
+                element: null,
+                index: -1,
+                placeholder: null,
+                isDragging: false,
+                startX: 0,
+                startY: 0,
+                originalRect: null,
+                timers: { touch: null, resize: null }
+            },
+            adpCache: {
+                data: null,
+                lastFetch: 0,
+                DURATION: 30 * 60 * 1000
             }
         };
 
-        // ADP cache variables
-        let lastFetchTime = 0;
-        let cachedAdpData = null;
-        const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
-
-        // Config & Utils
+        // Configuration
         const config = {
+            currentYear: new Date().getFullYear(),
             risks: ['Low', 'Medium', 'High'],
             riskBtnColors: { High: 'bg-red-600', Medium: 'bg-yellow-600', Low: 'bg-green-600' },
             posColors: { 
@@ -187,43 +140,90 @@
                 TE: 'text-orange-300 bg-orange-900/50', 
                 K: 'text-pink-300 bg-pink-900/50', 
                 DST: 'text-gray-300 bg-gray-700/50' 
+            },
+            adp: {
+                baseUrl: 'https://fantasyranker-adp-api.onrender.com/api/players',
+                endpoints: { 'PPR': '/ppr', 'Half PPR': '/half', 'Standard': '/standard' }
             }
         };
 
+        // Utilities
         const $ = id => document.getElementById(id);
-        const on = (el, evt, fn) => el.addEventListener(evt, fn);
+        const on = (el, evt, fn, opts) => el.addEventListener(evt, fn, opts);
         const debounce = (fn, ms) => { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }};
 
-        // Live ADP Functions
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Event listeners
+            on($('rankerName'), 'input', updateTitle);
+            on($('scoringFormat'), 'change', updateTitle);
+            on($('searchInput'), 'input', debounce(filterPlayers, 150));
+            on($('loadFileInput'), 'change', loadRankings);
+            on($('saveBtn'), 'click', saveRankings);
+            on($('printBtn'), 'click', downloadPrintable);
+            on($('draftBtn'), 'click', toggleDraftMode);
+            on($('loadLiveBtn'), 'click', () => loadLiveAdpData());
+            on($('refreshAdpBtn'), 'click', () => loadLiveAdpData(false));
+            
+            on(window, 'resize', () => {
+                cancelDragOperation();
+                clearTimeout(state.dragState.timers.resize);
+                state.dragState.timers.resize = setTimeout(filterPlayers, 250);
+            });
+            
+            updateTitle();
+            loadPlayersFromFile();
+        });
+
+        // Title management
+        function updateTitle() {
+            const name = $('rankerName').value.trim();
+            const format = $('scoringFormat').value || 'PPR';
+            const displayName = name ? name + "'s" : 'Your';
+            const isLiveData = state.adpCache.data && state.players === state.adpCache.data;
+            const liveText = isLiveData ? 'Live ' : '';
+            
+            $('rankingsTitle').textContent = `${displayName} ${config.currentYear} ${liveText}${format} Fantasy Football Rankings`;
+        }
+
+        // Data loading
+        function loadPlayersFromFile() {
+            fetch('./players.json')
+                .then(r => r.ok ? r.json() : Promise.reject())
+                .then(d => {
+                    state.players = d.players.map((p, i) => ({
+                        ...p, 
+                        id: p.id || `p${i}`, 
+                        risk: p.risk || 'Medium', 
+                        notes: p.notes || '', 
+                        overallRank: i + 1
+                    }));
+                    recalculateRanks();
+                    filterPlayers();
+                })
+                .catch(() => console.log('No default players.json found'));
+        }
+
         async function fetchAdpData(scoringFormat = 'Half PPR', useCache = true) {
             const now = Date.now();
             
-            // Return cached data if still fresh
-            if (useCache && cachedAdpData && (now - lastFetchTime) < CACHE_DURATION) {
+            if (useCache && state.adpCache.data && (now - state.adpCache.lastFetch) < state.adpCache.DURATION) {
                 console.log('Using cached ADP data');
-                return cachedAdpData;
+                return state.adpCache.data;
             }
             
-            const endpoint = adpConfig.endpoints[scoringFormat];
-            if (!endpoint) {
-                throw new Error(`Unsupported scoring format: ${scoringFormat}`);
-            }
+            const endpoint = config.adp.endpoints[scoringFormat];
+            if (!endpoint) throw new Error(`Unsupported scoring format: ${scoringFormat}`);
             
-            const apiUrl = adpConfig.baseUrl + endpoint;
+            const apiUrl = config.adp.baseUrl + endpoint;
             
             try {
-                console.log(`Fetching ${scoringFormat} data from: ${apiUrl}`);
-                
                 const response = await fetch(apiUrl, {
                     method: 'GET',
-                    headers: {
-                        'Accept': 'application/json'
-                    }
+                    headers: { 'Accept': 'application/json' }
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
+                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 
                 const data = await response.json();
                 
@@ -231,14 +231,12 @@
                     throw new Error('No player data found in response');
                 }
                 
-                // Filter to top 200 players, excluding K and DST
                 const filteredPlayers = data.players
                     .filter(player => player.position !== 'K' && player.position !== 'DST')
                     .slice(0, 200);
 
-                console.log(`Filtered to ${filteredPlayers.length} players (removed K/DST, top 200 only)`);
-                cachedAdpData = filteredPlayers;
-                lastFetchTime = now;
+                state.adpCache.data = filteredPlayers;
+                state.adpCache.lastFetch = now;
                 return filteredPlayers;
                 
             } catch (error) {
@@ -247,36 +245,12 @@
             }
         }
 
-        function addLiveDataControls() {
-            const controlsContainer = document.querySelector('.bg-slate-800.rounded-lg.shadow-xl.p-6.mb-6.border.border-slate-700');
-            
-            // Add live data toggle
-            const liveDataRow = document.createElement('div');
-            liveDataRow.className = 'grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-slate-600';
-            liveDataRow.innerHTML = `
-                <button id="loadLiveBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors h-10">
-                    Load Live ADP
-                </button>
-                <button id="refreshAdpBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors h-10 hidden">
-                    Refresh to ADP
-                </button>
-                <div id="adpStatus" class="flex items-center text-sm text-gray-400"></div>
-            `;
-            
-            controlsContainer.appendChild(liveDataRow);
-            
-            // Add event listeners
-            document.getElementById('loadLiveBtn').addEventListener('click', loadLiveAdpData);
-            document.getElementById('refreshAdpBtn').addEventListener('click', () => loadLiveAdpData(false));
-        }
-
         async function loadLiveAdpData(useCache = true) {
-            const loadBtn = document.getElementById('loadLiveBtn');
-            const refreshBtn = document.getElementById('refreshAdpBtn');
-            const statusDiv = document.getElementById('adpStatus');
-            const scoringFormat = document.getElementById('scoringFormat').value;
+            const loadBtn = $('loadLiveBtn');
+            const refreshBtn = $('refreshAdpBtn');
+            const statusDiv = $('adpStatus');
+            const scoringFormat = $('scoringFormat').value;
             
-            // Update UI to show loading
             loadBtn.disabled = true;
             loadBtn.textContent = 'Loading...';
             statusDiv.textContent = 'Fetching live ADP data...';
@@ -284,244 +258,72 @@
             try {
                 const adpPlayers = await fetchAdpData(scoringFormat, useCache);
                 
-                // Update global players array
-                players = adpPlayers;
+                state.players = adpPlayers;
                 recalculateRanks();
                 filterPlayers();
                 
-                // Update UI
                 loadBtn.textContent = 'Live ADP Loaded';
-                loadBtn.className = 'bg-green-600 text-white px-4 py-2 rounded-md opacity-75 cursor-not-allowed h-10';
+                loadBtn.classList.add('hidden');
                 refreshBtn.classList.remove('hidden');
                 
-                const cacheText = useCache && cachedAdpData ? ' (cached)' : '';
+                const cacheText = useCache && state.adpCache.data ? ' (cached)' : '';
                 statusDiv.innerHTML = `
                     <span class="text-green-400">✓ Loaded ${adpPlayers.length} players${cacheText}</span>
                     <span class="ml-2 text-xs">${new Date().toLocaleTimeString()}</span>
                 `;
                 
-                console.log('Live ADP data loaded successfully');
-                
             } catch (error) {
-                console.error('Failed to load live ADP data:', error);
-                
-                // Reset UI
                 loadBtn.disabled = false;
                 loadBtn.textContent = 'Load Live ADP';
                 statusDiv.innerHTML = `<span class="text-red-400">✗ Failed: ${error.message}</span>`;
                 
-                // Show user-friendly error message
                 alert(`Failed to load live ADP data: ${error.message}\n\nThe backend might be sleeping (first request takes 30 seconds). Please try again.`);
             }
         }
 
-        function updateTitleWithAdp() {
-            const name = document.getElementById('rankerName').value.trim();
-            const format = document.getElementById('scoringFormat').value || 'PPR';
-            const displayName = name ? name + "'s" : 'Your';
-            const isLiveData = cachedAdpData && players === cachedAdpData;
-            const liveText = isLiveData ? 'Live ' : '';
-            
-            document.getElementById('rankingsTitle').textContent = 
-                `${displayName} ${currentYear} ${liveText}${format} Fantasy Football Rankings`;
-        }
-
-        function setupScoringFormatHandler() {
-            const originalHandler = document.getElementById('scoringFormat').onchange;
-            
-            document.getElementById('scoringFormat').addEventListener('change', () => {
-                // Call original handler
-                if (originalHandler) originalHandler();
-                
-                // If using live data, offer to refresh
-                if (cachedAdpData && players === cachedAdpData) {
-                    if (confirm('Scoring format changed. Load ADP data for the new format?')) {
-                        loadLiveAdpData(false); // Force fresh fetch
-                    }
-                }
-                
-                updateTitleWithAdp();
-            });
-        }
-
-        // Make drag functions globally available immediately
-        window.handleDragStart = function(e) {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', ''); // Firefox needs this
-            draggedElement = e.target.closest('.player-item');
-            draggedIndex = parseInt(draggedElement.dataset.index);
-            draggedElement.classList.add('dragging');
-        };
-
-        window.handleDragOver = function(e) {
-            e.preventDefault();
-            const target = e.target.closest('.player-item');
-            if (target && target !== draggedElement) {
-                const rect = target.getBoundingClientRect();
-                const midpoint = rect.top + rect.height / 2;
-                if (e.clientY < midpoint) {
-                    target.classList.add('drag-over-top');
-                    target.classList.remove('drag-over-bottom');
-                } else {
-                    target.classList.add('drag-over-bottom');
-                    target.classList.remove('drag-over-top');
-                }
-            }
-        };
-
-        window.handleDrop = function(e) {
-            e.preventDefault();
-            const target = e.target.closest('.player-item');
-            if (target && target !== draggedElement) {
-                const dragId = draggedElement.dataset.playerId;
-                const targetId = target.dataset.playerId;
-                const dragIdx = players.findIndex(p => p.id === dragId);
-                const targetIdx = players.findIndex(p => p.id === targetId);
-                
-                if (dragIdx !== -1 && targetIdx !== -1) {
-                    const [moved] = players.splice(dragIdx, 1);
-                    players.splice(targetIdx, 0, moved);
-                    recalculateRanks();
-                    filterPlayers();
-                }
-            }
-            cleanupDrag();
-        };
-
-        window.cleanupDrag = function() {
-            document.querySelectorAll('.dragging, .drag-over-top, .drag-over-bottom')
-                .forEach(el => el.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom'));
-            draggedElement = null;
-            draggedIndex = -1;
-        };
-
-        function cancelAllDragOperations() {
-            // Cancel touch timer
-            if (touchTimer) {
-                clearTimeout(touchTimer);
-                touchTimer = null;
-            }
-            
-            // Cancel active touch drag
-            if (touchDragging) {
-                touchDragging = false;
-                
-                if (draggedElement && draggedElement.classList.contains('touch-drag-active')) {
-                    draggedElement.classList.remove('touch-drag-active');
-                    draggedElement.style.width = '';
-                    draggedElement.style.height = '';
-                    draggedElement.style.left = '';
-                    draggedElement.style.top = '';
-                    draggedElement.style.position = '';
-                    delete draggedElement.dataset.originalRect;
-                }
-                
-                if (placeholder && placeholder.parentNode) {
-                    placeholder.remove();
-                }
-                
-                draggedElement = null;
-                placeholder = null;
-            }
-            
-            // Cancel active mouse drag
-            if (mouseDragging) {
-                handleMouseUp();
-            }
-        }
-
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            // Setup event listeners
-            ['rankerName', 'scoringFormat'].forEach(id => on($(id), 'input', updateTitleWithAdp));
-            on($('searchInput'), 'input', debounce(filterPlayers, 150));
-            on($('loadFileInput'), 'change', loadRankings);
-            on($('saveBtn'), 'click', saveRankings);
-            on($('printBtn'), 'click', downloadPrintable);
-            on($('draftBtn'), 'click', toggleDraftMode);
-            
-            // Add AI Insight button handler (placeholder for now)
-            on($('aiInsightBtn'), 'click', () => {
-                console.log('AI Insight button clicked - functionality to be added later');
-            });
-            
-            // Add resize handler with debouncing
-            window.addEventListener('resize', () => {
-                // Immediately cancel any active drag operations
-                cancelAllDragOperations();
-                
-                // Debounce the re-render
-                clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(() => {
-                    filterPlayers();
-                }, 250);
-            });
-            
-            updateTitleWithAdp();
-            loadPlayersFromFile();
-            
-            // Add live data controls after existing initialization
-            setTimeout(() => {
-                addLiveDataControls();
-                setupScoringFormatHandler();
-            }, 100);
-        });
-
-        function loadPlayersFromFile() {
-            fetch('./players.json')
-                .then(r => r.ok ? r.json() : Promise.reject())
-                .then(d => {
-                    players = d.players.map((p, i) => ({
-                        ...p, id: p.id || `p${i}`, risk: p.risk || 'Medium', 
-                        notes: p.notes || '', overallRank: i + 1
-                    }));
-                    recalculateRanks();
-                    filterPlayers();
-                }).catch(() => {});
-        }
-
+        // Player management
         function recalculateRanks() {
             const posCounts = {};
-            players.forEach((p, i) => {
+            state.players.forEach((p, i) => {
                 posCounts[p.position] = (posCounts[p.position] || 0) + 1;
-                p.overallRank = i + 1; // Always based on full players array
+                p.overallRank = i + 1;
                 p.positionRank = posCounts[p.position];
             });
         }
 
-        function updatePlayerOrder(draggedPlayerId, newPosition) {
-            // Global reordering - standard behavior
-            const newOrder = Array.from(document.querySelectorAll('.player-item')).map(el => 
-                players.find(p => p.id === el.dataset.playerId)
-            ).filter(Boolean);
-            players = newOrder;
-            
-            recalculateRanks();
-            filterPlayers();
-        }
-
         function filterPlayers() {
             const search = $('searchInput').value.toLowerCase();
-            filteredPlayers = players.filter(p => 
+            state.filteredPlayers = state.players.filter(p => 
                 p.name.toLowerCase().includes(search) || p.team.toLowerCase().includes(search)
             );
             renderPlayers();
         }
 
+        function updatePlayerOrder() {
+            const newOrder = Array.from(document.querySelectorAll('.player-item')).map(el => 
+                state.players.find(p => p.id === el.dataset.playerId)
+            ).filter(Boolean);
+            state.players = newOrder;
+            
+            recalculateRanks();
+            filterPlayers();
+        }
+
+        // Rendering
         function renderPlayers() {
             const container = $('playersList');
-            container.innerHTML = filteredPlayers.map((p, i) => {
-                const actionBtn = isDraftMode ? 
+            container.innerHTML = state.filteredPlayers.map((p, i) => {
+                const actionBtn = state.isDraftMode ? 
                     `<button onclick="draftPlayer('${p.id}')" class="bg-red-600 w-8 h-8 rounded text-xs font-bold text-white hover:bg-red-700 transition-colors">D</button>` :
                     `<button onclick="cycleRisk('${p.id}')" class="${config.riskBtnColors[p.risk]} w-8 h-8 rounded text-xs font-bold text-white hover:opacity-80 transition-opacity">${p.risk[0]}</button>`;
 
-                const notes = isDraftMode ? 
+                const notes = state.isDraftMode ? 
                     `<div class="w-full border border-slate-600 rounded px-2 py-1 text-sm h-12 bg-slate-700 text-gray-300">${p.notes || ''}</div>` :
-                    `<textarea placeholder="Add notes..." onchange="updateNotes('${p.id}', this.value)" maxlength="100" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm resize-none h-12 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">${p.notes}</textarea>`;
+                    `<textarea placeholder="Add notes..." onchange="updateNotes('${p.id}', this.value)" maxlength="165" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm resize-none h-12 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">${p.notes}</textarea>`;
 
                 return `<div class="player-item ${config.posColors[p.position]} hover:shadow-lg" data-player-id="${p.id}" data-index="${i}">
                     <div class="p-2 flex items-stretch gap-1">
-                        <div class="drag-area flex items-center gap-1 flex-grow ${!isDraftMode ? 'cursor-move' : ''}">
+                        <div class="drag-area flex items-center gap-1 flex-grow ${!state.isDraftMode ? 'cursor-move' : ''}">
                             <div class="w-12 text-center font-bold text-2xl text-gray-100">${p.overallRank}</div>
                             <span class="${config.positionColors[p.position]} px-2 py-1 rounded text-sm font-medium">${p.position}${p.positionRank}</span>
                             <div class="px-2 flex-grow">
@@ -538,293 +340,13 @@
                 </div>`;
             }).join('');
             
-            // Add drag event listeners after rendering
-            if (!isDraftMode) {
+            if (!state.isDraftMode) {
                 setupDragHandlers();
             }
         }
 
-        // Touch and Mouse handling for drag and drop
-        function setupDragHandlers() {
-            const items = document.querySelectorAll('.drag-area');
-            items.forEach(item => {
-                // Mobile touch events
-                item.addEventListener('touchstart', handleTouchStart, { passive: false });
-                item.addEventListener('touchmove', handleTouchMove, { passive: false });
-                item.addEventListener('touchend', handleTouchEnd, { passive: false });
-                
-                // Desktop mouse events
-                item.addEventListener('mousedown', handleMouseDown);
-            });
-        }
-
-        function handleMouseDown(e) {
-            // Prevent text selection while dragging
-            e.preventDefault();
-            
-            mouseStartX = e.clientX;
-            mouseStartY = e.clientY;
-            
-            const playerItem = e.target.closest('.player-item');
-            
-            // No long press needed for desktop - start drag immediately
-            mouseDragging = true;
-            draggedElement = playerItem;
-            draggedIndex = parseInt(playerItem.dataset.index);
-            
-            // Store original position
-            const rect = draggedElement.getBoundingClientRect();
-            
-            // Create placeholder
-            placeholder = draggedElement.cloneNode(true);
-            placeholder.classList.add('drag-placeholder');
-            draggedElement.parentNode.insertBefore(placeholder, draggedElement);
-            
-            // Store original rect
-            draggedElement.dataset.originalRect = JSON.stringify({
-                left: rect.left,
-                top: rect.top
-            });
-            
-            // Style dragged element
-            draggedElement.classList.add('touch-drag-active');
-            draggedElement.style.width = rect.width + 'px';
-            draggedElement.style.height = rect.height + 'px';
-            draggedElement.style.left = rect.left + 'px';
-            draggedElement.style.top = rect.top + 'px';
-            
-            // Add mouse move/up listeners to document for better tracking
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-        }
-
-        function handleMouseMove(e) {
-            if (!mouseDragging) return;
-            
-            e.preventDefault();
-            
-            // Update dragged element position
-            if (draggedElement && draggedElement.classList.contains('touch-drag-active')) {
-                const offsetX = e.clientX - mouseStartX;
-                const offsetY = e.clientY - mouseStartY;
-                const originalRect = JSON.parse(draggedElement.dataset.originalRect);
-                
-                draggedElement.style.left = (originalRect.left + offsetX) + 'px';
-                draggedElement.style.top = (originalRect.top + offsetY) + 'px';
-            }
-            
-            // Find element under mouse
-            draggedElement.style.pointerEvents = 'none'; // temporarily disable to see through
-            const elementBelow = document.elementFromPoint(e.clientX, e.clientY);
-            draggedElement.style.pointerEvents = 'auto';
-            
-            const targetItem = elementBelow?.closest('.player-item:not(.touch-drag-active)');
-            
-            if (targetItem && placeholder) {
-                const targetRect = targetItem.getBoundingClientRect();
-                const targetMid = targetRect.top + targetRect.height / 2;
-                
-                if (e.clientY < targetMid) {
-                    targetItem.parentNode.insertBefore(placeholder, targetItem);
-                } else {
-                    targetItem.parentNode.insertBefore(placeholder, targetItem.nextSibling);
-                }
-            }
-        }
-
-        function handleMouseUp(e) {
-            if (!mouseDragging) return;
-            
-            // Remove document listeners
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-            
-            if (draggedElement && placeholder) {
-                // Replace placeholder with dragged element
-                placeholder.parentNode.replaceChild(draggedElement, placeholder);
-                
-                // Clean up styles
-                draggedElement.classList.remove('touch-drag-active');
-                draggedElement.style.width = '';
-                draggedElement.style.height = '';
-                draggedElement.style.left = '';
-                draggedElement.style.top = '';
-                draggedElement.style.pointerEvents = '';
-                delete draggedElement.dataset.originalRect;
-                
-                // Update player order - get new position from DOM
-                const newPosition = Array.from(document.querySelectorAll('.player-item')).findIndex(el => 
-                    el.dataset.playerId === draggedElement.dataset.playerId
-                );
-                updatePlayerOrder(draggedElement.dataset.playerId, newPosition);
-            }
-            
-            mouseDragging = false;
-            draggedElement = null;
-            placeholder = null;
-        }
-
-        function handleTouchStart(e) {
-            // Ignore touches near window edges (within 20px) to prevent conflicts with resize
-            const touch = e.touches[0];
-            if (touch.clientX < 20 || touch.clientX > window.innerWidth - 20 || 
-                touch.clientY < 20 || touch.clientY > window.innerHeight - 20) {
-                return;
-            }
-            
-            touchStartX = touch.clientX;
-            touchStartY = touch.clientY;
-            
-            const playerItem = e.target.closest('.player-item');
-            
-            touchTimer = setTimeout(() => {
-                if (!touchDragging) { // Double check we haven't been cancelled
-                    touchDragging = true;
-                    draggedElement = playerItem;
-                    draggedIndex = parseInt(playerItem.dataset.index);
-                    
-                    // Store original position
-                    const rect = draggedElement.getBoundingClientRect();
-                    
-                    // Create placeholder
-                    placeholder = draggedElement.cloneNode(true);
-                    placeholder.classList.add('drag-placeholder');
-                    draggedElement.parentNode.insertBefore(placeholder, draggedElement);
-                    
-                    // Store original rect for consistent positioning
-                    draggedElement.dataset.originalRect = JSON.stringify({
-                        left: rect.left,
-                        top: rect.top
-                    });
-                    
-                    // Style dragged element
-                    draggedElement.classList.add('touch-drag-active');
-                    draggedElement.style.width = rect.width + 'px';
-                    draggedElement.style.height = rect.height + 'px';
-                    draggedElement.style.left = rect.left + 'px';
-                    draggedElement.style.top = rect.top + 'px';
-                    
-                    // Haptic feedback if available
-                    if (navigator.vibrate) navigator.vibrate(50);
-                }
-            }, 200);
-        }
-
-        function handleTouchMove(e) {
-            if (!touchDragging) {
-                // Cancel timer if moved too much before long press
-                const touch = e.touches[0];
-                const moveX = Math.abs(touch.clientX - touchStartX);
-                const moveY = Math.abs(touch.clientY - touchStartY);
-                if (moveX > 10 || moveY > 10) {
-                    clearTimeout(touchTimer);
-                }
-                return;
-            }
-            
-            e.preventDefault();
-            const touch = e.touches[0];
-            
-            // Update dragged element position using original start position
-            if (draggedElement && draggedElement.classList.contains('touch-drag-active') && draggedElement.dataset.originalRect) {
-                const offsetX = touch.clientX - touchStartX;
-                const offsetY = touch.clientY - touchStartY;
-                const originalRect = JSON.parse(draggedElement.dataset.originalRect);
-                
-                draggedElement.style.left = (originalRect.left + offsetX) + 'px';
-                draggedElement.style.top = (originalRect.top + offsetY) + 'px';
-            }
-            
-            // Find element under touch point
-            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-            const targetItem = elementBelow?.closest('.player-item:not(.touch-drag-active)');
-            
-            if (targetItem && placeholder) {
-                const targetRect = targetItem.getBoundingClientRect();
-                const targetMid = targetRect.top + targetRect.height / 2;
-                
-                if (touch.clientY < targetMid) {
-                    targetItem.parentNode.insertBefore(placeholder, targetItem);
-                } else {
-                    targetItem.parentNode.insertBefore(placeholder, targetItem.nextSibling);
-                }
-            }
-        }
-
-        function handleTouchEnd(e) {
-            clearTimeout(touchTimer);
-            
-            if (touchDragging && draggedElement && placeholder) {
-                // Replace placeholder with dragged element
-                placeholder.parentNode.replaceChild(draggedElement, placeholder);
-                
-                // Clean up styles
-                draggedElement.classList.remove('touch-drag-active');
-                draggedElement.style.width = '';
-                draggedElement.style.height = '';
-                draggedElement.style.left = '';
-                draggedElement.style.top = '';
-                delete draggedElement.dataset.originalRect;
-                
-                // Update player order - get new position from DOM
-                const newPosition = Array.from(document.querySelectorAll('.player-item')).findIndex(el => 
-                    el.dataset.playerId === draggedElement.dataset.playerId
-                );
-                updatePlayerOrder(draggedElement.dataset.playerId, newPosition);
-            }
-            
-            touchDragging = false;
-            draggedElement = null;
-            placeholder = null;
-        }
-
-        // Player actions
-        window.cycleRisk = id => {
-            const p = players.find(x => x.id === id);
-            if (p) {
-                const i = config.risks.indexOf(p.risk);
-                p.risk = config.risks[(i + 1) % 3];
-                filterPlayers();
-            }
-        };
-
-        window.updateNotes = (id, notes) => {
-            const p = players.find(x => x.id === id);
-            if (p) p.notes = notes;
-        };
-
-        window.draftPlayer = id => {
-            const i = players.findIndex(p => p.id === id);
-            if (i !== -1) {
-                draftedPlayers.unshift(players.splice(i, 1)[0]);
-                filterPlayers();
-                renderRecentlyDrafted();
-            }
-        };
-
-        window.undraftPlayer = id => {
-            const i = draftedPlayers.findIndex(p => p.id === id);
-            if (i !== -1) {
-                players.push(draftedPlayers.splice(i, 1)[0]);
-                players.sort((a, b) => a.overallRank - b.overallRank);
-                filterPlayers();
-                renderRecentlyDrafted();
-            }
-        };
-
-        function toggleDraftMode() {
-            isDraftMode = !isDraftMode;
-            const btn = $('draftBtn');
-            btn.textContent = isDraftMode ? 'Exit Draft' : 'Draft Day';
-            btn.className = isDraftMode ? 'bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors h-10' : 
-                                          'bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10';
-            $('recentlyDraftedSection').classList.toggle('hidden');
-            renderPlayers();
-            if (isDraftMode) renderRecentlyDrafted();
-        }
-
         function renderRecentlyDrafted() {
-            $('recentlyDraftedList').innerHTML = draftedPlayers.slice(0, 3).map(p => 
+            $('recentlyDraftedList').innerHTML = state.draftedPlayers.slice(0, 3).map(p => 
                 `<div class="bg-slate-900 border border-slate-700 rounded-lg p-2 cursor-pointer hover:bg-slate-800 transition-colors">
                     <div class="flex items-center gap-2">
                         <span class="${config.positionColors[p.position]} px-2 py-1 rounded text-xs font-medium">${p.position}</span>
@@ -838,6 +360,196 @@
             ).join('');
         }
 
+        // Drag and drop handling
+        function setupDragHandlers() {
+            const items = document.querySelectorAll('.drag-area');
+            items.forEach(item => {
+                // Touch events
+                on(item, 'touchstart', handleTouchStart, { passive: false });
+                on(item, 'touchmove', handleTouchMove, { passive: false });
+                on(item, 'touchend', handleTouchEnd, { passive: false });
+                // Mouse events
+                on(item, 'mousedown', handleMouseDown);
+            });
+        }
+
+        function initDrag(element, clientX, clientY) {
+            const rect = element.getBoundingClientRect();
+            
+            state.dragState.element = element;
+            state.dragState.index = parseInt(element.dataset.index);
+            state.dragState.isDragging = true;
+            state.dragState.startX = clientX;
+            state.dragState.startY = clientY;
+            state.dragState.originalRect = { left: rect.left, top: rect.top };
+            
+            // Create placeholder
+            state.dragState.placeholder = element.cloneNode(true);
+            state.dragState.placeholder.classList.add('drag-placeholder');
+            element.parentNode.insertBefore(state.dragState.placeholder, element);
+            
+            // Style dragged element
+            element.classList.add('drag-active');
+            element.style.width = rect.width + 'px';
+            element.style.height = rect.height + 'px';
+            element.style.left = rect.left + 'px';
+            element.style.top = rect.top + 'px';
+        }
+
+        function moveDrag(clientX, clientY) {
+            if (!state.dragState.isDragging || !state.dragState.element) return;
+            
+            const offsetX = clientX - state.dragState.startX;
+            const offsetY = clientY - state.dragState.startY;
+            
+            state.dragState.element.style.left = (state.dragState.originalRect.left + offsetX) + 'px';
+            state.dragState.element.style.top = (state.dragState.originalRect.top + offsetY) + 'px';
+            
+            // Find drop target
+            state.dragState.element.style.pointerEvents = 'none';
+            const elementBelow = document.elementFromPoint(clientX, clientY);
+            state.dragState.element.style.pointerEvents = 'auto';
+            
+            const targetItem = elementBelow?.closest('.player-item:not(.drag-active)');
+            
+            if (targetItem && state.dragState.placeholder) {
+                const targetRect = targetItem.getBoundingClientRect();
+                const targetMid = targetRect.top + targetRect.height / 2;
+                
+                if (clientY < targetMid) {
+                    targetItem.parentNode.insertBefore(state.dragState.placeholder, targetItem);
+                } else {
+                    targetItem.parentNode.insertBefore(state.dragState.placeholder, targetItem.nextSibling);
+                }
+            }
+        }
+
+        function endDrag() {
+            if (!state.dragState.isDragging) return;
+            
+            if (state.dragState.element && state.dragState.placeholder) {
+                state.dragState.placeholder.parentNode.replaceChild(state.dragState.element, state.dragState.placeholder);
+                
+                state.dragState.element.classList.remove('drag-active');
+                state.dragState.element.style.width = '';
+                state.dragState.element.style.height = '';
+                state.dragState.element.style.left = '';
+                state.dragState.element.style.top = '';
+                
+                updatePlayerOrder();
+            }
+            
+            // Reset drag state
+            state.dragState.element = null;
+            state.dragState.placeholder = null;
+            state.dragState.isDragging = false;
+        }
+
+        function cancelDragOperation() {
+            clearTimeout(state.dragState.timers.touch);
+            endDrag();
+        }
+
+        // Touch handlers
+        function handleTouchStart(e) {
+            const touch = e.touches[0];
+            const playerItem = e.target.closest('.player-item');
+            
+            state.dragState.timers.touch = setTimeout(() => {
+                initDrag(playerItem, touch.clientX, touch.clientY);
+                if (navigator.vibrate) navigator.vibrate(50);
+            }, 200);
+        }
+
+        function handleTouchMove(e) {
+            if (!state.dragState.isDragging) {
+                const touch = e.touches[0];
+                const moveX = Math.abs(touch.clientX - state.dragState.startX);
+                const moveY = Math.abs(touch.clientY - state.dragState.startY);
+                if (moveX > 10 || moveY > 10) {
+                    clearTimeout(state.dragState.timers.touch);
+                }
+                return;
+            }
+            
+            e.preventDefault();
+            const touch = e.touches[0];
+            moveDrag(touch.clientX, touch.clientY);
+        }
+
+        function handleTouchEnd() {
+            clearTimeout(state.dragState.timers.touch);
+            endDrag();
+        }
+
+        // Mouse handlers
+        function handleMouseDown(e) {
+            e.preventDefault();
+            const playerItem = e.target.closest('.player-item');
+            initDrag(playerItem, e.clientX, e.clientY);
+            
+            on(document, 'mousemove', handleMouseMove);
+            on(document, 'mouseup', handleMouseUp);
+        }
+
+        function handleMouseMove(e) {
+            if (!state.dragState.isDragging) return;
+            e.preventDefault();
+            moveDrag(e.clientX, e.clientY);
+        }
+
+        function handleMouseUp() {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            endDrag();
+        }
+
+        // Player actions
+        window.cycleRisk = id => {
+            const p = state.players.find(x => x.id === id);
+            if (p) {
+                const i = config.risks.indexOf(p.risk);
+                p.risk = config.risks[(i + 1) % 3];
+                filterPlayers();
+            }
+        };
+
+        window.updateNotes = (id, notes) => {
+            const p = state.players.find(x => x.id === id);
+            if (p) p.notes = notes;
+        };
+
+        window.draftPlayer = id => {
+            const i = state.players.findIndex(p => p.id === id);
+            if (i !== -1) {
+                state.draftedPlayers.unshift(state.players.splice(i, 1)[0]);
+                filterPlayers();
+                renderRecentlyDrafted();
+            }
+        };
+
+        window.undraftPlayer = id => {
+            const i = state.draftedPlayers.findIndex(p => p.id === id);
+            if (i !== -1) {
+                state.players.push(state.draftedPlayers.splice(i, 1)[0]);
+                state.players.sort((a, b) => a.overallRank - b.overallRank);
+                filterPlayers();
+                renderRecentlyDrafted();
+            }
+        };
+
+        function toggleDraftMode() {
+            state.isDraftMode = !state.isDraftMode;
+            const btn = $('draftBtn');
+            btn.textContent = state.isDraftMode ? 'Exit Draft' : 'Draft Day';
+            btn.className = state.isDraftMode ? 
+                'bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors h-10' : 
+                'bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10';
+            $('recentlyDraftedSection').classList.toggle('hidden');
+            renderPlayers();
+            if (state.isDraftMode) renderRecentlyDrafted();
+        }
+
         // File operations
         function loadRankings(e) {
             const file = e.target.files[0];
@@ -848,7 +560,7 @@
                 try {
                     const data = JSON.parse(e.target.result);
                     if (data.players && !data.rankerName) {
-                        players = data.players.map((p, i) => ({
+                        state.players = data.players.map((p, i) => ({
                             ...p, id: p.id || `p${i}`, risk: p.risk || 'Medium',
                             notes: p.notes || '', overallRank: i + 1
                         }));
@@ -856,12 +568,12 @@
                     } else {
                         $('rankerName').value = data.rankerName || '';
                         $('scoringFormat').value = data.scoringFormat || 'PPR';
-                        players = data.players || [];
-                        draftedPlayers = data.draftedPlayers || [];
+                        state.players = data.players || [];
+                        state.draftedPlayers = data.draftedPlayers || [];
                     }
-                    updateTitleWithAdp();
+                    updateTitle();
                     filterPlayers();
-                    if (isDraftMode) renderRecentlyDrafted();
+                    if (state.isDraftMode) renderRecentlyDrafted();
                 } catch (err) {
                     alert('Error loading file: ' + err.message);
                 }
@@ -872,13 +584,14 @@
         function saveRankings() {
             const data = {
                 rankerName: $('rankerName').value.trim(),
-                year: currentYear,
+                year: config.currentYear,
                 scoringFormat: $('scoringFormat').value,
-                players, draftedPlayers
+                players: state.players, 
+                draftedPlayers: state.draftedPlayers
             };
 
             const displayName = data.rankerName || 'Your';
-            const filename = `${displayName}${currentYear}${data.scoringFormat || 'PPR'}Rankings.json`;
+            const filename = `${displayName}${config.currentYear}${data.scoringFormat || 'PPR'}Rankings.json`;
             downloadFile(JSON.stringify(data, null, 2), filename, 'application/json');
         }
 
@@ -886,7 +599,7 @@
             const name = $('rankerName').value.trim();
             const displayName = name || 'Your';
             const scoring = $('scoringFormat').value || 'PPR';
-            const filename = `${displayName}${currentYear}${scoring}Printable.html`;
+            const filename = `${displayName}${config.currentYear}${scoring}Printable.html`;
             downloadFile(generatePrintableHTML(), filename, 'text/html');
         }
 
@@ -902,27 +615,31 @@
 
         function generatePrintableHTML() {
             const title = $('rankingsTitle').textContent;
-            const perCol = 24, perPage = 48;
+            const perCol = 25, perPage = 50;
             
             const genColumn = players => players.map(p => {
                 const [first, ...last] = p.name.split(/\s+/);
                 const riskClass = p.risk ? `risk-${p.risk.toLowerCase()}` : '';
+                const adpText = p.adp ? `ADP: ${p.adp}` : '';
                 return `<div class="player ${riskClass}">
                     <div class="rank">${p.overallRank}</div>
                     <div class="position ${p.position}">${p.position}${p.positionRank}</div>
                     <div class="player-info">
                         <div class="name"><div class="first-name">${first}</div><div class="last-name">${last.join(' ')}</div></div>
-                        <div class="team">${p.team}</div>
+                        <div class="team-adp">
+                            <span class="team">${p.team}</span>
+                            ${adpText ? `<span class="adp">${adpText}</span>` : ''}
+                        </div>
                     </div>
                     <div class="notes">${p.notes || ''}</div>
                 </div>`;
             }).join('');
 
             const pages = [];
-            for (let i = 0; i < players.length; i += perPage) {
+            for (let i = 0; i < state.players.length; i += perPage) {
                 const pageNum = Math.floor(i / perPage) + 1;
-                const left = players.slice(i, i + perCol);
-                const right = players.slice(i + perCol, i + perPage);
+                const left = state.players.slice(i, i + perCol);
+                const right = state.players.slice(i + perCol, i + perPage);
                 pages.push(`<div class="page">
                     <div class="header">
                         <div class="subtitle">${title} - Generated on ${new Date().toLocaleDateString()}</div>
@@ -934,38 +651,33 @@
                     </div>
                     <div class="page-footer">
                         <span>https://squelab.github.io/FantasyRanker/</span>
-                        <span>Page ${pageNum} of ${Math.ceil(players.length / perPage)}</span>
+                        <span>Page ${pageNum} of ${Math.ceil(state.players.length / perPage)}</span>
                     </div>
                 </div>`);
             }
 
             return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title><style>
-*{margin:0;padding:0;box-sizing:border-box}body{font:11px/1.2 Arial,sans-serif;color:#333;background:#fff}
-.page{width:8.5in;height:11in;margin:0 auto;padding:.3in;page-break-after:always;position:relative;display:flex;flex-direction:column}
-.page:last-child{page-break-after:avoid}.header{text-align:center;margin-bottom:.15in;padding-bottom:4px;display:flex;justify-content:space-between;align-items:center}
-.url-header{font-size:10px;color:#666}.subtitle{font-size:11px;color:#666;flex-grow:1}
-.columns{display:flex;gap:.15in;flex-grow:1}.column{width:360px}
-.player{position:relative;margin-bottom:3px;height:32px;width:360px;border-radius:2px;border-left:3px solid #d1d5db}
+*{margin:0;padding:0;box-sizing:border-box}body{font:10px/1.1 Arial,sans-serif;color:#333;background:#fff}
+.page{width:8.5in;height:11in;margin:0 auto;padding:.2in;page-break-after:always;position:relative;display:flex;flex-direction:column}
+.page:last-child{page-break-after:avoid}.header{text-align:center;margin-bottom:.1in;padding-bottom:3px;display:flex;justify-content:space-between;align-items:center}
+.url-header{font-size:9px;color:#666}.subtitle{font-size:10px;color:#666;flex-grow:1}
+.columns{display:flex;gap:.1in;flex-grow:1}.column{width:3.85in}
+.player{position:relative;margin-bottom:2px;height:28px;width:3.85in;border-radius:2px;border-left:3px solid #d1d5db}
 .player.risk-high{border-left:3px solid #dc2626}
 .player.risk-medium{border-left:3px solid #d97706}
 .player.risk-low{border-left:3px solid #16a34a}
-.rank{position:absolute;left:5px;top:8px;width:20px;height:16px;font:bold 12px/16px Arial;color:#111;text-align:center}
-.position{position:absolute;left:28px;top:8px;width:30px;height:16px;font:bold 8px/16px Arial;text-align:center;color:#000}
-.player-info{position:absolute;left:61px;top:3px;width:80px;height:26px;overflow:hidden}
-.name{font:bold 9px/10px Arial}.first-name,.last-name{display:block;height:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.team{color:#666;font-size:7px;height:8px;line-height:8px}
-.notes{position:absolute;left:144px;top:3px;width:210px;height:26px;background:#fff;border:1px solid #d1d5db;
-border-radius:2px;padding:2px 3px;font-size:7px;color:#374151;word-wrap:break-word;overflow:hidden;line-height:8px}
-.page-footer{position:absolute;bottom:.15in;left:.3in;right:.3in;display:flex;justify-content:space-between;font-size:10px;color:#666}
+.rank{position:absolute;left:4px;top:6px;width:18px;height:16px;font:bold 11px/16px Arial;color:#111;text-align:center}
+.position{position:absolute;left:25px;top:6px;width:28px;height:16px;font:bold 7px/16px Arial;text-align:center;color:#000}
+.player-info{position:absolute;left:56px;top:2px;width:85px;height:24px;overflow:hidden}
+.name{font:bold 8px/9px Arial}.first-name,.last-name{display:block;height:9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.team-adp{font-size:6px;height:7px;line-height:7px;display:flex;justify-content:space-between}
+.team{color:#666}.adp{color:#888}
+.notes{position:absolute;left:144px;top:2px;width:2.25in;height:24px;background:#fff;border:1px solid #d1d5db;
+border-radius:2px;padding:2px 3px;font-size:6px;color:#374151;word-wrap:break-word;overflow:hidden;line-height:7px}
+.page-footer{position:absolute;bottom:.1in;left:.2in;right:.2in;display:flex;justify-content:space-between;font-size:9px;color:#666}
 @media print{body{margin:0}.page{margin:0;page-break-after:always}.page:last-child{page-break-after:avoid}}
 </style></head><body>${pages.join('')}</body></html>`;
         }
-
-        // Export functions for debugging/manual use
-        window.debugAdp = {
-            fetchAdpData,
-            loadLiveAdpData
-        };
     </script>
 </body>
 </html>
