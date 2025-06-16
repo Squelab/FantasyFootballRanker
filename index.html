@@ -12,7 +12,7 @@
     <div class="container mx-auto p-4 max-w-6xl">
         <!-- Header Controls -->
         <div class="bg-slate-800 rounded-lg shadow-xl p-6 mb-6 border border-slate-700">
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <input type="text" id="rankerName" placeholder="Your Name" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none h-10">
                 <select id="scoringFormat" class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 focus:border-blue-500 focus:outline-none h-10">
                     <option value="PPR">PPR</option>
@@ -24,9 +24,6 @@
                     <input type="file" id="loadFileInput" accept=".json" class="hidden">
                 </label>
                 <button id="saveBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors h-10">Save Rankings</button>
-                <button id="printBtn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors h-10">Printable</button>
-                <button id="loadLiveBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors h-10">Load Live ADP</button>
-                <button id="refreshAdpBtn" class="bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors h-10 hidden">Refresh ADP</button>
             </div>
             <div id="adpStatus" class="flex items-center justify-center text-sm text-gray-400 mb-2"></div>
             <h1 id="rankingsTitle" class="text-2xl font-bold text-center text-gray-100 mt-4">
@@ -40,11 +37,16 @@
             <div id="recentlyDraftedList" class="space-y-2"></div>
         </div>
 
-        <!-- Filters -->
+        <!-- Search Section -->
         <div class="bg-slate-800 rounded-lg shadow-xl p-4 mb-6 border border-slate-700">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input type="text" id="searchInput" placeholder="Search players..." class="bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">
+            <input type="text" id="searchInput" placeholder="Search players..." class="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="bg-slate-800 rounded-lg shadow-xl p-4 mb-6 border border-slate-700">
+            <div class="grid grid-cols-2 gap-4">
                 <button id="draftBtn" class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10">Draft Day</button>
+                <button id="printBtn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors h-10">Printable</button>
             </div>
         </div>
 
@@ -70,17 +72,12 @@
                 startY: 0,
                 originalRect: null,
                 timers: { touch: null, resize: null }
-            },
-            adpCache: {
-                data: null,
-                lastFetch: 0,
-                DURATION: 30 * 60 * 1000
             }
         };
 
         // Configuration
-        const config = {
-            currentYear: new Date().getFullYear(),
+        const cfg = {
+            year: new Date().getFullYear(),
             risks: ['Low', 'Medium', 'High'],
             riskBtnColors: { High: 'bg-red-600', Medium: 'bg-yellow-600', Low: 'bg-green-600' },
             posColors: { 
@@ -98,10 +95,6 @@
                 TE: 'text-orange-300 bg-orange-900/50', 
                 K: 'text-pink-300 bg-pink-900/50', 
                 DST: 'text-gray-300 bg-gray-700/50' 
-            },
-            adp: {
-                baseUrl: 'https://fantasyranker-adp-api.onrender.com/api/players',
-                endpoints: { 'PPR': '/ppr', 'Half PPR': '/half', 'Standard': '/standard' }
             }
         };
 
@@ -112,19 +105,13 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
-            // Event listeners
             on($('rankerName'), 'input', updateTitle);
-            on($('scoringFormat'), 'change', () => {
-                updateTitle();
-                loadPlayersFromFile(); // Reload data when format changes
-            });
+            on($('scoringFormat'), 'change', () => { updateTitle(); loadPlayersFromFile(); });
             on($('searchInput'), 'input', debounce(filterPlayers, 150));
             on($('loadFileInput'), 'change', loadRankings);
             on($('saveBtn'), 'click', saveRankings);
             on($('printBtn'), 'click', downloadPrintable);
             on($('draftBtn'), 'click', toggleDraftMode);
-            on($('loadLiveBtn'), 'click', () => loadLiveAdpData());
-            on($('refreshAdpBtn'), 'click', () => loadLiveAdpData(false));
             
             on(window, 'resize', () => {
                 cancelDragOperation();
@@ -140,22 +127,18 @@
         function updateTitle() {
             const name = $('rankerName').value.trim();
             const format = $('scoringFormat').value || 'PPR';
-            const displayName = name ? name + "'s" : 'Your';
-            const isLiveData = state.adpCache.data && state.players === state.adpCache.data;
-            const liveText = isLiveData ? 'Live ' : '';
-            
-            $('rankingsTitle').textContent = `${displayName} ${config.currentYear} ${liveText}${format} Fantasy Football Rankings`;
+            $('rankingsTitle').textContent = `${name ? name + "'s" : 'Your'} ${cfg.year} ${format} Fantasy Football Rankings`;
         }
 
         // Data loading
         function loadPlayersFromFile() {
             const format = $('scoringFormat').value || 'PPR';
-            const filename = getJsonFilename(format);
+            const fileMap = { 'PPR': 'PPR.json', 'Half PPR': 'HPPR.json', 'Standard': 'STD.json' };
+            const filename = fileMap[format] || 'PPR.json';
             
             fetch(`./${filename}`)
                 .then(r => r.ok ? r.json() : Promise.reject())
                 .then(d => {
-                    // Handle both old format (players.json) and new format (direct array)
                     const players = d.players || d;
                     state.players = players.map((p, i) => ({
                         ...p, 
@@ -166,104 +149,11 @@
                     }));
                     recalculateRanks();
                     filterPlayers();
-                    
-                    // Update status to show we loaded from static file
-                    const statusDiv = $('adpStatus');
-                    statusDiv.innerHTML = `
-                        <span class="text-blue-400">📁 Loaded ${state.players.length} players from ${filename}</span>
-                        <span class="ml-2 text-xs">${new Date().toLocaleTimeString()}</span>
-                    `;
+                    $('adpStatus').innerHTML = `<span class="text-blue-400">📁 Loaded ${state.players.length} players from ${filename}</span>`;
                 })
                 .catch(() => {
-                    console.log(`No ${filename} found`);
-                    $('adpStatus').innerHTML = `<span class="text-gray-400">No local rankings found. Use "Load Live ADP" to fetch data.</span>`;
+                    $('adpStatus').innerHTML = `<span class="text-gray-400">No local rankings found.</span>`;
                 });
-        }
-
-        function getJsonFilename(format) {
-            const fileMap = {
-                'PPR': 'PPR.json',
-                'Half PPR': 'HPPR.json', 
-                'Standard': 'STD.json'
-            };
-            return fileMap[format] || 'PPR.json';
-        }
-
-        async function fetchAdpData(scoringFormat = 'Half PPR', useCache = true) {
-            const now = Date.now();
-            
-            if (useCache && state.adpCache.data && (now - state.adpCache.lastFetch) < state.adpCache.DURATION) {
-                console.log('Using cached ADP data');
-                return state.adpCache.data;
-            }
-            
-            const endpoint = config.adp.endpoints[scoringFormat];
-            if (!endpoint) throw new Error(`Unsupported scoring format: ${scoringFormat}`);
-            
-            const apiUrl = config.adp.baseUrl + endpoint;
-            
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                });
-                
-                if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                
-                const data = await response.json();
-                
-                if (!data.players || data.players.length === 0) {
-                    throw new Error('No player data found in response');
-                }
-                
-                const filteredPlayers = data.players
-                    .filter(player => player.position !== 'K' && player.position !== 'DST')
-                    .slice(0, 200);
-
-                state.adpCache.data = filteredPlayers;
-                state.adpCache.lastFetch = now;
-                return filteredPlayers;
-                
-            } catch (error) {
-                console.error(`Error fetching ${scoringFormat} data:`, error.message);
-                throw error;
-            }
-        }
-
-        async function loadLiveAdpData(useCache = true) {
-            const loadBtn = $('loadLiveBtn');
-            const refreshBtn = $('refreshAdpBtn');
-            const statusDiv = $('adpStatus');
-            const scoringFormat = $('scoringFormat').value;
-            
-            loadBtn.disabled = true;
-            loadBtn.textContent = 'Loading...';
-            statusDiv.textContent = 'Fetching live ADP data...';
-            
-            try {
-                const adpPlayers = await fetchAdpData(scoringFormat, useCache);
-                
-                state.players = adpPlayers;
-                recalculateRanks();
-                filterPlayers();
-                
-                loadBtn.textContent = 'Live ADP Loaded';
-                loadBtn.classList.add('hidden');
-                refreshBtn.classList.remove('hidden');
-                
-                const cacheText = useCache && state.adpCache.data ? ' (cached)' : '';
-                statusDiv.innerHTML = `
-                    <span class="text-green-400">✓ Loaded ${adpPlayers.length} live players${cacheText}</span>
-                    <span class="ml-2 text-xs">${new Date().toLocaleTimeString()}</span>
-                `;
-                
-            } catch (error) {
-                loadBtn.disabled = false;
-                loadBtn.textContent = 'Load Live ADP';
-                statusDiv.innerHTML = `<span class="text-red-400">✗ Failed: ${error.message}</span>`;
-                
-                alert(`Failed to load live ADP data: ${error.message}\n\nThe backend might be sleeping (first request takes 30 seconds). Please try again.`);
-            }
         }
 
         // Player management
@@ -289,7 +179,6 @@
                 state.players.find(p => p.id === el.dataset.playerId)
             ).filter(Boolean);
             state.players = newOrder;
-            
             recalculateRanks();
             filterPlayers();
         }
@@ -300,17 +189,17 @@
             container.innerHTML = state.filteredPlayers.map((p, i) => {
                 const actionBtn = state.isDraftMode ? 
                     `<button onclick="draftPlayer('${p.id}')" class="bg-red-600 w-8 h-8 rounded text-xs font-bold text-white hover:bg-red-700 transition-colors">D</button>` :
-                    `<button onclick="cycleRisk('${p.id}')" class="${config.riskBtnColors[p.risk]} w-8 h-8 rounded text-xs font-bold text-white hover:opacity-80 transition-opacity">${p.risk[0]}</button>`;
+                    `<button onclick="cycleRisk('${p.id}')" class="${cfg.riskBtnColors[p.risk]} w-8 h-8 rounded text-xs font-bold text-white hover:opacity-80 transition-opacity">${p.risk[0]}</button>`;
 
                 const notes = state.isDraftMode ? 
                     `<div class="w-full border border-slate-600 rounded px-2 py-1 text-sm h-12 bg-slate-700 text-gray-300">${p.notes || ''}</div>` :
                     `<textarea placeholder="Add notes..." onchange="updateNotes('${p.id}', this.value)" maxlength="165" class="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-sm resize-none h-12 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">${p.notes}</textarea>`;
 
-                return `<div class="player-item ${config.posColors[p.position]} hover:shadow-lg" data-player-id="${p.id}" data-index="${i}">
+                return `<div class="player-item ${cfg.posColors[p.position]} hover:shadow-lg" data-player-id="${p.id}" data-index="${i}">
                     <div class="p-2 flex items-stretch gap-1">
                         <div class="drag-area flex items-center gap-1 flex-grow ${!state.isDraftMode ? 'cursor-move' : ''}">
                             <div class="w-12 text-center font-bold text-2xl text-gray-100">${p.overallRank}</div>
-                            <span class="${config.positionColors[p.position]} px-2 py-1 rounded text-sm font-medium">${p.position}${p.positionRank}</span>
+                            <span class="${cfg.positionColors[p.position]} px-2 py-1 rounded text-sm font-medium">${p.position}${p.positionRank}</span>
                             <div class="px-2 flex-grow">
                                 <div class="font-semibold text-gray-100">${p.name}</div>
                                 <div class="text-xs text-gray-400 flex justify-between items-center">
@@ -325,16 +214,14 @@
                 </div>`;
             }).join('');
             
-            if (!state.isDraftMode) {
-                setupDragHandlers();
-            }
+            if (!state.isDraftMode) setupDragHandlers();
         }
 
         function renderRecentlyDrafted() {
             $('recentlyDraftedList').innerHTML = state.draftedPlayers.slice(0, 3).map(p => 
                 `<div class="bg-slate-900 border border-slate-700 rounded-lg p-2 cursor-pointer hover:bg-slate-800 transition-colors">
                     <div class="flex items-center gap-2">
-                        <span class="${config.positionColors[p.position]} px-2 py-1 rounded text-xs font-medium">${p.position}</span>
+                        <span class="${cfg.positionColors[p.position]} px-2 py-1 rounded text-xs font-medium">${p.position}</span>
                         <div class="flex-grow">
                             <span class="font-semibold text-gray-100">${p.name}</span>
                             <span class="text-xs text-gray-400 ml-2">${p.team}</span>
@@ -347,87 +234,69 @@
 
         // Drag and drop handling
         function setupDragHandlers() {
-            const items = document.querySelectorAll('.drag-area');
-            items.forEach(item => {
-                // Touch events
+            document.querySelectorAll('.drag-area').forEach(item => {
                 on(item, 'touchstart', handleTouchStart, { passive: false });
                 on(item, 'touchmove', handleTouchMove, { passive: false });
                 on(item, 'touchend', handleTouchEnd, { passive: false });
-                // Mouse events
                 on(item, 'mousedown', handleMouseDown);
             });
         }
 
         function initDrag(element, clientX, clientY) {
             const rect = element.getBoundingClientRect();
+            Object.assign(state.dragState, {
+                element,
+                index: parseInt(element.dataset.index),
+                isDragging: true,
+                startX: clientX,
+                startY: clientY,
+                originalRect: { left: rect.left, top: rect.top }
+            });
             
-            state.dragState.element = element;
-            state.dragState.index = parseInt(element.dataset.index);
-            state.dragState.isDragging = true;
-            state.dragState.startX = clientX;
-            state.dragState.startY = clientY;
-            state.dragState.originalRect = { left: rect.left, top: rect.top };
-            
-            // Create placeholder
             state.dragState.placeholder = element.cloneNode(true);
             state.dragState.placeholder.classList.add('drag-placeholder');
             element.parentNode.insertBefore(state.dragState.placeholder, element);
             
-            // Style dragged element
             element.classList.add('drag-active');
-            element.style.width = rect.width + 'px';
-            element.style.height = rect.height + 'px';
-            element.style.left = rect.left + 'px';
-            element.style.top = rect.top + 'px';
+            Object.assign(element.style, {
+                width: rect.width + 'px',
+                height: rect.height + 'px',
+                left: rect.left + 'px',
+                top: rect.top + 'px'
+            });
         }
 
         function moveDrag(clientX, clientY) {
             if (!state.dragState.isDragging || !state.dragState.element) return;
             
-            const offsetX = clientX - state.dragState.startX;
-            const offsetY = clientY - state.dragState.startY;
+            const { element, startX, startY, originalRect, placeholder } = state.dragState;
+            element.style.left = (originalRect.left + clientX - startX) + 'px';
+            element.style.top = (originalRect.top + clientY - startY) + 'px';
             
-            state.dragState.element.style.left = (state.dragState.originalRect.left + offsetX) + 'px';
-            state.dragState.element.style.top = (state.dragState.originalRect.top + offsetY) + 'px';
-            
-            // Find drop target
-            state.dragState.element.style.pointerEvents = 'none';
+            element.style.pointerEvents = 'none';
             const elementBelow = document.elementFromPoint(clientX, clientY);
-            state.dragState.element.style.pointerEvents = 'auto';
+            element.style.pointerEvents = 'auto';
             
             const targetItem = elementBelow?.closest('.player-item:not(.drag-active)');
-            
-            if (targetItem && state.dragState.placeholder) {
+            if (targetItem && placeholder) {
                 const targetRect = targetItem.getBoundingClientRect();
-                const targetMid = targetRect.top + targetRect.height / 2;
-                
-                if (clientY < targetMid) {
-                    targetItem.parentNode.insertBefore(state.dragState.placeholder, targetItem);
-                } else {
-                    targetItem.parentNode.insertBefore(state.dragState.placeholder, targetItem.nextSibling);
-                }
+                const before = clientY < targetRect.top + targetRect.height / 2;
+                targetItem.parentNode.insertBefore(placeholder, before ? targetItem : targetItem.nextSibling);
             }
         }
 
         function endDrag() {
             if (!state.dragState.isDragging) return;
             
-            if (state.dragState.element && state.dragState.placeholder) {
-                state.dragState.placeholder.parentNode.replaceChild(state.dragState.element, state.dragState.placeholder);
-                
-                state.dragState.element.classList.remove('drag-active');
-                state.dragState.element.style.width = '';
-                state.dragState.element.style.height = '';
-                state.dragState.element.style.left = '';
-                state.dragState.element.style.top = '';
-                
+            const { element, placeholder } = state.dragState;
+            if (element && placeholder) {
+                placeholder.parentNode.replaceChild(element, placeholder);
+                element.classList.remove('drag-active');
+                ['width', 'height', 'left', 'top'].forEach(prop => element.style[prop] = '');
                 updatePlayerOrder();
             }
             
-            // Reset drag state
-            state.dragState.element = null;
-            state.dragState.placeholder = null;
-            state.dragState.isDragging = false;
+            Object.assign(state.dragState, { element: null, placeholder: null, isDragging: false });
         }
 
         function cancelDragOperation() {
@@ -439,7 +308,6 @@
         function handleTouchStart(e) {
             const touch = e.touches[0];
             const playerItem = e.target.closest('.player-item');
-            
             state.dragState.timers.touch = setTimeout(() => {
                 initDrag(playerItem, touch.clientX, touch.clientY);
                 if (navigator.vibrate) navigator.vibrate(50);
@@ -451,15 +319,11 @@
                 const touch = e.touches[0];
                 const moveX = Math.abs(touch.clientX - state.dragState.startX);
                 const moveY = Math.abs(touch.clientY - state.dragState.startY);
-                if (moveX > 10 || moveY > 10) {
-                    clearTimeout(state.dragState.timers.touch);
-                }
+                if (moveX > 10 || moveY > 10) clearTimeout(state.dragState.timers.touch);
                 return;
             }
-            
             e.preventDefault();
-            const touch = e.touches[0];
-            moveDrag(touch.clientX, touch.clientY);
+            moveDrag(e.touches[0].clientX, e.touches[0].clientY);
         }
 
         function handleTouchEnd() {
@@ -470,9 +334,7 @@
         // Mouse handlers
         function handleMouseDown(e) {
             e.preventDefault();
-            const playerItem = e.target.closest('.player-item');
-            initDrag(playerItem, e.clientX, e.clientY);
-            
+            initDrag(e.target.closest('.player-item'), e.clientX, e.clientY);
             on(document, 'mousemove', handleMouseMove);
             on(document, 'mouseup', handleMouseUp);
         }
@@ -493,8 +355,8 @@
         window.cycleRisk = id => {
             const p = state.players.find(x => x.id === id);
             if (p) {
-                const i = config.risks.indexOf(p.risk);
-                p.risk = config.risks[(i + 1) % 3];
+                const i = cfg.risks.indexOf(p.risk);
+                p.risk = cfg.risks[(i + 1) % 3];
                 filterPlayers();
             }
         };
@@ -527,9 +389,7 @@
             state.isDraftMode = !state.isDraftMode;
             const btn = $('draftBtn');
             btn.textContent = state.isDraftMode ? 'Exit Draft' : 'Draft Day';
-            btn.className = state.isDraftMode ? 
-                'bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors h-10' : 
-                'bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10';
+            btn.className = `${state.isDraftMode ? 'bg-red-600' : 'bg-orange-600'} text-white px-4 py-2 rounded-md hover:${state.isDraftMode ? 'bg-red-700' : 'bg-orange-700'} transition-colors h-10`;
             $('recentlyDraftedSection').classList.toggle('hidden');
             renderPlayers();
             if (state.isDraftMode) renderRecentlyDrafted();
@@ -569,33 +429,28 @@
         function saveRankings() {
             const data = {
                 rankerName: $('rankerName').value.trim(),
-                year: config.currentYear,
+                year: cfg.year,
                 scoringFormat: $('scoringFormat').value,
                 players: state.players, 
                 draftedPlayers: state.draftedPlayers
             };
 
-            const displayName = data.rankerName || 'Your';
-            const filename = `${displayName}${config.currentYear}${data.scoringFormat || 'PPR'}Rankings.json`;
-            downloadFile(JSON.stringify(data, null, 2), filename, 'application/json');
+            const name = data.rankerName || 'Your';
+            downloadFile(JSON.stringify(data, null, 2), `${name}${cfg.year}${data.scoringFormat || 'PPR'}Rankings.json`, 'application/json');
         }
 
         function downloadPrintable() {
-            const name = $('rankerName').value.trim();
-            const displayName = name || 'Your';
+            const name = $('rankerName').value.trim() || 'Your';
             const scoring = $('scoringFormat').value || 'PPR';
-            const filename = `${displayName}${config.currentYear}${scoring}Printable.html`;
-            downloadFile(generatePrintableHTML(), filename, 'text/html');
+            downloadFile(generatePrintableHTML(), `${name}${cfg.year}${scoring}Printable.html`, 'text/html');
         }
 
         function downloadFile(content, filename, type) {
-            const blob = new Blob([content], { type });
-            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
+            a.href = URL.createObjectURL(new Blob([content], { type }));
             a.download = filename;
             a.click();
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(a.href);
         }
 
         function generatePrintableHTML() {
@@ -623,16 +478,14 @@
             const pages = [];
             for (let i = 0; i < state.players.length; i += perPage) {
                 const pageNum = Math.floor(i / perPage) + 1;
-                const left = state.players.slice(i, i + perCol);
-                const right = state.players.slice(i + perCol, i + perPage);
                 pages.push(`<div class="page">
                     <div class="header">
                         <div class="subtitle">${title} - Generated on ${new Date().toLocaleDateString()}</div>
                         <div class="url-header">https://squelab.github.io/FantasyFootballRanker/</div>
                     </div>
                     <div class="columns">
-                        <div class="column">${genColumn(left)}</div>
-                        <div class="column">${genColumn(right)}</div>
+                        <div class="column">${genColumn(state.players.slice(i, i + perCol))}</div>
+                        <div class="column">${genColumn(state.players.slice(i + perCol, i + perPage))}</div>
                     </div>
                     <div class="page-footer">
                         <span>https://squelab.github.io/FantasyRanker/</span>
