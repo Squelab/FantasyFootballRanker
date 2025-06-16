@@ -149,7 +149,7 @@
                     }));
                     recalculateRanks();
                     filterPlayers();
-                    $('adpStatus').innerHTML = `<span class="text-blue-400">📁 Loaded ${state.players.length} players from ${filename}</span>`;
+                    $('adpStatus').innerHTML = `<span class="text-blue-400"> Loaded ${state.players.length} players from ${filename}</span>`;
                 })
                 .catch(() => {
                     $('adpStatus').innerHTML = `<span class="text-gray-400">No local rankings found.</span>`;
