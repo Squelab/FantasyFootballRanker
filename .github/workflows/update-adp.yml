@@ -4,7 +4,10 @@ on:
   schedule:
     # Run every 6 hours (at 0:00, 6:00, 12:00, 18:00 UTC)
     - cron: '0 */6 * * *'
-  workflow_dispatch:  # Allows manual triggering from GitHub UI
+  workflow_dispatch: # Allows manual triggering from GitHub UI
+
+permissions:
+  contents: write
 
 jobs:
   update-adp-data:
@@ -19,7 +22,7 @@ jobs:
           echo "Fetching PPR data..."
           curl -s "https://fantasyranker-adp-api.onrender.com/api/players/ppr" | jq '.players' > PPR.json
           
-      - name: Fetch Half PPR data  
+      - name: Fetch Half PPR data
         run: |
           echo "Fetching Half PPR data..."
           curl -s "https://fantasyranker-adp-api.onrender.com/api/players/half" | jq '.players' > HPPR.json
@@ -34,7 +37,7 @@ jobs:
           echo "Checking file sizes..."
           ls -la *.json
           echo "PPR records: $(jq length PPR.json)"
-          echo "Half PPR records: $(jq length HPPR.json)" 
+          echo "Half PPR records: $(jq length HPPR.json)"
           echo "Standard records: $(jq length STD.json)"
           
       - name: Commit and push changes
@@ -44,7 +47,6 @@ jobs:
           
           # Add timestamp to commit message
           TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
-          
           git add PPR.json HPPR.json STD.json
           
           # Only commit if there are changes
