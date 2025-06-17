@@ -25,7 +25,7 @@
                 </label>
                 <button id="saveBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors h-10">Save Rankings</button>
             </div>
-            <div id="adpStatus" class="flex items-center justify-center text-sm text-gray-400 mb-2"></div>
+
             <h1 id="rankingsTitle" class="text-2xl font-bold text-center text-gray-100 mt-4">
                 Your 2025 PPR Fantasy Football Rankings
             </h1>
@@ -37,17 +37,17 @@
             <div id="recentlyDraftedList" class="space-y-2"></div>
         </div>
 
-        <!-- Search Section -->
-        <div class="bg-slate-800 rounded-lg shadow-xl p-4 mb-6 border border-slate-700">
-            <input type="text" id="searchInput" placeholder="Search players..." class="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">
-        </div>
-
         <!-- Action Buttons -->
         <div class="bg-slate-800 rounded-lg shadow-xl p-4 mb-6 border border-slate-700">
             <div class="grid grid-cols-2 gap-4">
                 <button id="draftBtn" class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors h-10">Draft Day</button>
                 <button id="printBtn" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors h-10">Printable</button>
             </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="bg-slate-800 rounded-lg shadow-xl p-4 mb-6 border border-slate-700">
+            <input type="text" id="searchInput" placeholder="Search players..." class="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:outline-none">
         </div>
 
         <!-- Rankings List -->
@@ -154,10 +154,6 @@
                     }));
                     recalculateRanks();
                     filterPlayers();
-                    $('adpStatus').innerHTML = `<span class="text-blue-400">Loaded ${state.players.length} players from ${filename}</span>`;
-                })
-                .catch(() => {
-                    $('adpStatus').innerHTML = `<span class="text-gray-400">No local rankings found.</span>`;
                 });
         }
 
