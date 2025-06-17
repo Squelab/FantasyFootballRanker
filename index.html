@@ -139,8 +139,13 @@
             fetch(`./${filename}`)
                 .then(r => r.ok ? r.json() : Promise.reject())
                 .then(d => {
-                    const players = d.players || d;
-                    state.players = players.map((p, i) => ({
+                    const allPlayers = d.players || d;
+                    // Filter to only skill positions (QB, RB, WR, TE) and limit to top 200
+                    const skillPlayers = allPlayers
+                        .filter(p => ['QB', 'RB', 'WR', 'TE'].includes(p.position))
+                        .slice(0, 200);
+                    
+                    state.players = skillPlayers.map((p, i) => ({
                         ...p, 
                         id: p.id || `p${i}`, 
                         risk: p.risk || 'Medium', 
@@ -149,7 +154,7 @@
                     }));
                     recalculateRanks();
                     filterPlayers();
-                    $('adpStatus').innerHTML = `<span class="text-blue-400"> Loaded ${state.players.length} players from ${filename}</span>`;
+                    $('adpStatus').innerHTML = `<span class="text-blue-400">Loaded ${state.players.length} players from ${filename}</span>`;
                 })
                 .catch(() => {
                     $('adpStatus').innerHTML = `<span class="text-gray-400">No local rankings found.</span>`;
